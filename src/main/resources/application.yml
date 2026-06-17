@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:mariadb://localhost:3306/main_db?characterEncoding=UTF-8&serverTimezone=Asia/Seoul
+    url: jdbc:mariadb://${DB_HOST}:3306/main_db?characterEncoding=UTF-8&serverTimezone=Asia/Seoul&sslMode=trust
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.mariadb.jdbc.Driver
