@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.member.mapper.MemberMapper">
+
+    <insert id="insertMember"
+            parameterType="com.sanavi.backend.member.dto.Member">
+        INSERT INTO member (
+            user_id,
+            password,
+            name,
+            phone,
+            email,
+            birth,
+            job,
+            gender
+        )
+        VALUES (
+            #{userId},
+            #{password},
+            #{name},
+            #{phone},
+            #{email},
+            #{birth},
+            #{job},
+            #{gender}
+        )
+    </insert>
+
+    <select id="findByUserId"
+            parameterType="string"
+            resultType="com.sanavi.backend.member.dto.Member">
+        SELECT
+            user_id,
+            password,
+            name,
+            phone,
+            email,
+            birth,
+            job,
+            gender,
+            subscribe,
+            created_at,
+            deleted,
+            ai_count,
+            role
+        FROM member
+        WHERE user_id = #{userId}
+          AND deleted = 1
+    </select>
+
+    <select id="countByUserId"
+            parameterType="string"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM member
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="countByEmail"
+            parameterType="string"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM member
+        WHERE email = #{email}
+    </select>
+
+</mapper>
