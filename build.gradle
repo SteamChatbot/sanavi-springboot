@@ -28,6 +28,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'      // 인증/인가 (JWT 필터 체인, CORS 등)
 	implementation 'org.springframework.boot:spring-boot-starter-validation'    // 요청값 검증 (@Valid, @NotBlank 등)
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'    // Redis 연동 (RefreshToken 저장)
+	implementation 'org.springframework.boot:spring-boot-starter-mail'			// 메일 인증
 	implementation 'org.mybatis.spring.boot:mybatis-spring-boot-starter:3.0.4' // MyBatis ORM (XML 매퍼, SQL 직접 작성)
 	runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'                         // MariaDB JDBC 드라이버 (런타임만 필요)
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.6'                           // JWT 생성·파싱 API

@@ -4,9 +4,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sanavi.backend.auth.dto.CheckIdResponse;
 import com.sanavi.backend.auth.dto.LoginRequest;
 import com.sanavi.backend.auth.dto.LoginResponse;
 import com.sanavi.backend.auth.dto.SignupRequest;
+import com.sanavi.backend.auth.dto.SignupResponse;
+import com.sanavi.backend.common.exception.DuplicateMemberException;
+import com.sanavi.backend.common.exception.EmailVerificationException;
+import com.sanavi.backend.common.exception.LoginFailedException;
 import com.sanavi.backend.member.dto.Member;
 import com.sanavi.backend.member.mapper.MemberMapper;
 
@@ -18,15 +23,21 @@ public class AuthService {
 
     private final MemberMapper memberMapper;
     private final PasswordEncoder passwordEncoder;
+    private final EmailVerificationService emailVerificationService;
 
     @Transactional
-    public void signup(SignupRequest request) {
+    public SignupResponse signup(SignupRequest request) {
         if (memberMapper.countByUserId(request.getUserId()) > 0) {
-            throw new IllegalArgumentException("이미 사용 중인 아이디입니다.");
+            throw new DuplicateMemberException("이미 사용 중인 아이디입니다.");
         }
 
         if (memberMapper.countByEmail(request.getEmail()) > 0) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+            throw new DuplicateMemberException("이미 사용 중인 이메일입니다.");
+        }
+
+        if (!emailVerificationService.isVerified(request.getEmail())) {
+            throw new EmailVerificationException(
+                    "이메일 인증이 완료되지 않았습니다.");
         }
 
         Member member = new Member();
@@ -44,26 +55,29 @@ public class AuthService {
         if (result != 1) {
             throw new IllegalStateException("회원가입 처리에 실패했습니다.");
         }
+
+        emailVerificationService.deleteVerification(request.getEmail());
+
+        return new SignupResponse(member.getUserId(), member.getName());
     }
 
     public LoginResponse login(LoginRequest request) {
         Member member = memberMapper.findByUserId(request.getUserId());
 
-        if (member == null) {
-            throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
-        }
-
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                member.getPassword()
-        )) {
-            throw new IllegalArgumentException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        if (member == null ||
+                !passwordEncoder.matches(request.getPassword(), member.getPassword())) {
+            throw new LoginFailedException(
+                    "아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
         return new LoginResponse(
-            member.getUserId(),
-            member.getName(),
-            member.getRole()
-        );
+                member.getUserId(),
+                member.getName(),
+                member.getRole());
+    }
+
+    public CheckIdResponse checkUserId(String userId) {
+        boolean available = memberMapper.countByUserId(userId) == 0;
+        return new CheckIdResponse(available);
     }
 }
