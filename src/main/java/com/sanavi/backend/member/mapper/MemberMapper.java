@@ -13,4 +13,6 @@ public interface MemberMapper {
     int countByUserId(String userId);
 
     int countByEmail(String email);
+
+    void incrementAiCount(String userId);
 }
