@@ -67,4 +67,35 @@
         WHERE email = #{email}
     </select>
 
+    <select id="findMemberInfoByUserId"
+            parameterType="string"
+            resultType="com.sanavi.backend.member.dto.MemberResponseDto">
+        SELECT
+            user_id AS userId,
+            name,
+            phone,
+            email,
+            birth,
+            job,
+            gender,
+            subscribe,
+            ai_count AS aiCount,
+            role,
+            created_at AS createdAt
+        FROM member
+        WHERE user_id = #{userId}
+        AND deleted = 1
+    </select>
+
+    <update id="updateMemberInfo">
+        UPDATE member
+        SET
+            name = #{request.name},
+            phone = #{request.phone},
+            job = #{request.job},
+            gender = #{request.gender}
+        WHERE user_id = #{userId}
+        AND deleted = 1
+    </update>
+
 </mapper>

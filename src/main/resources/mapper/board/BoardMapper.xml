@@ -112,4 +112,10 @@
         AND deleted = 1
     </update>
 
+    <update id="increaseViewCount">
+        UPDATE board
+        SET view_count = view_count + 1
+        WHERE id = #{id}
+        AND deleted = 1
+    </update>
 </mapper>

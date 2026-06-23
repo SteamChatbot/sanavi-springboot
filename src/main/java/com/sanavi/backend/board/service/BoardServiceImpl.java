@@ -3,6 +3,7 @@ package com.sanavi.backend.board.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.sanavi.backend.board.dto.BoardListResponseDto;
 import com.sanavi.backend.board.dto.BoardRequestDto;
@@ -18,20 +19,20 @@ public class BoardServiceImpl implements BoardService {
     private final BoardMapper boardMapper;
 
     @Override
-public BoardListResponseDto getBoardList(int page, int size, String keyword, String searchType) {
-    int offset = (page - 1) * size;
+    public BoardListResponseDto getBoardList(int page, int size, String keyword, String searchType) {
+        int offset = (page - 1) * size;
 
-    List<BoardResponseDto> contents =
-            boardMapper.selectBoardList(offset, size, keyword, searchType);
+        List<BoardResponseDto> contents = boardMapper.selectBoardList(offset, size, keyword, searchType);
 
-    int totalCount =
-            boardMapper.selectBoardCount(keyword, searchType);
+        int totalCount = boardMapper.selectBoardCount(keyword, searchType);
 
-    return new BoardListResponseDto(contents, page, size, totalCount);
-}
+        return new BoardListResponseDto(contents, page, size, totalCount);
+    }
 
     @Override
+    @Transactional
     public BoardResponseDto getBoardById(int id) {
+        boardMapper.increaseViewCount(id);
         return boardMapper.selectBoardById(id);
     }
 
@@ -49,5 +50,5 @@ public BoardListResponseDto getBoardList(int page, int size, String keyword, Str
     public void deleteBoard(int id) {
         boardMapper.deleteBoard(id);
     }
-    
+
 }
