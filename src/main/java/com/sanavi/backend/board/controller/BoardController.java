@@ -1,16 +1,28 @@
 package com.sanavi.backend.board.controller;
 
+import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.sanavi.backend.board.dto.BoardFileDto;
+import com.sanavi.backend.board.dto.BoardFileResponseDto;
 import com.sanavi.backend.board.dto.BoardListResponseDto;
 import com.sanavi.backend.board.dto.BoardRequestDto;
 import com.sanavi.backend.board.dto.BoardResponseDto;
@@ -36,16 +48,25 @@ public class BoardController {
         return ResponseEntity.ok(ApiResponse.success("게시글 목록 조회 성공", response));
     }
 
-    @GetMapping("/{boardId}")
-    public ResponseEntity<ApiResponse<BoardResponseDto>> getBoardById(@PathVariable int boardId) {
-        BoardResponseDto response = boardService.getBoardById(boardId);
-        return ResponseEntity.ok(ApiResponse.success("게시글 상세 조회 성공", response));
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<BoardResponseDto>> getBoardById(
+            @PathVariable int id) {
+        BoardResponseDto response = boardService.getBoardById(id);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("게시글 상세 조회 성공", response));
     }
 
-    @PostMapping
-    public ResponseEntity<ApiResponse<Void>> createBoard(@RequestBody BoardRequestDto requestDto) {
-        boardService.createBoard(requestDto);
-        return ResponseEntity.ok(ApiResponse.success("게시글이 등록되었습니다.", null));
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<Map<String, Integer>>> createBoard(
+            @ModelAttribute BoardRequestDto requestDto,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        int boardId = boardService.createBoard(requestDto, files);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "게시글이 등록되었습니다.",
+                        Map.of("boardId", boardId)));
     }
 
     @PatchMapping("/{boardId}")
@@ -60,5 +81,43 @@ public class BoardController {
     public ResponseEntity<Void> deleteBoard(@PathVariable int id) {
         boardService.deleteBoard(id);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/{boardId}/files/{fileId}/download")
+    public ResponseEntity<byte[]> downloadFile(
+            @PathVariable int boardId,
+            @PathVariable int fileId) {
+        BoardFileDto file = boardService.getBoardFile(boardId, fileId);
+        byte[] bytes = boardService.downloadBoardFile(boardId, fileId);
+
+        ContentDisposition contentDisposition = ContentDisposition.attachment()
+                .filename(file.getOriginalName(), StandardCharsets.UTF_8)
+                .build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(bytes.length)
+                .body(bytes);
+    }
+
+    @PostMapping(value = "/{boardId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<List<BoardFileResponseDto>>> addBoardFiles(
+            @PathVariable int boardId,
+            @RequestPart(value = "files", required = false) List<MultipartFile> files) {
+        List<BoardFileResponseDto> response = boardService.addBoardFiles(boardId, files);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("첨부파일이 추가되었습니다.", response));
+    }
+
+    @DeleteMapping("/{boardId}/files/{fileId}")
+    public ResponseEntity<ApiResponse<Void>> deleteBoardFile(
+            @PathVariable int boardId,
+            @PathVariable int fileId) {
+        boardService.deleteBoardFile(boardId, fileId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("첨부파일이 삭제 처리되었습니다.", null));
     }
 }
