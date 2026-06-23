@@ -4,10 +4,14 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.sanavi.backend.board.dto.BoardFileDto;
+import com.sanavi.backend.board.dto.BoardFileResponseDto;
 import com.sanavi.backend.board.dto.BoardListResponseDto;
 import com.sanavi.backend.board.dto.BoardRequestDto;
 import com.sanavi.backend.board.dto.BoardResponseDto;
+import com.sanavi.backend.board.mapper.BoardFileMapper;
 import com.sanavi.backend.board.mapper.BoardMapper;
 
 import lombok.RequiredArgsConstructor;
@@ -17,6 +21,8 @@ import lombok.RequiredArgsConstructor;
 public class BoardServiceImpl implements BoardService {
 
     private final BoardMapper boardMapper;
+    private final BoardFileMapper boardFileMapper;
+    private final S3FileService s3FileService;
 
     @Override
     public BoardListResponseDto getBoardList(int page, int size, String keyword, String searchType) {
@@ -33,22 +39,110 @@ public class BoardServiceImpl implements BoardService {
     @Transactional
     public BoardResponseDto getBoardById(int id) {
         boardMapper.increaseViewCount(id);
-        return boardMapper.selectBoardById(id);
+
+        BoardResponseDto board = boardMapper.selectBoardById(id);
+
+        if (board == null) {
+            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
+        }
+
+        board.setFiles(boardFileMapper.selectFilesByBoardId(id));
+
+        return board;
     }
 
     @Override
-    public void createBoard(BoardRequestDto requestDto) {
+    @Transactional
+    public int createBoard(BoardRequestDto requestDto, List<MultipartFile> files) {
         boardMapper.insertBoard(requestDto);
+
+        int boardId = requestDto.getBoardId();
+
+        if (files != null && !files.isEmpty()) {
+            for (MultipartFile file : files) {
+                if (file.isEmpty()) {
+                    continue;
+                }
+
+                BoardFileDto uploadedFile = s3FileService.uploadBoardFile(boardId, file);
+
+                boardFileMapper.insertBoardFile(uploadedFile);
+            }
+        }
+
+        return boardId;
     }
 
     @Override
+    @Transactional
     public void updateBoard(int id, BoardRequestDto requestDto) {
         boardMapper.updateBoard(id, requestDto);
     }
 
     @Override
+    @Transactional
     public void deleteBoard(int id) {
         boardMapper.deleteBoard(id);
+        boardFileMapper.deleteFilesByBoardId(id);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public BoardFileDto getBoardFile(int boardId, int fileId) {
+        BoardFileDto file = boardFileMapper.selectFileById(boardId, fileId);
+
+        if (file == null) {
+            throw new IllegalArgumentException("파일을 찾을 수 없습니다.");
+        }
+
+        return file;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] downloadBoardFile(int boardId, int fileId) {
+        BoardFileDto file = getBoardFile(boardId, fileId);
+
+        return s3FileService.download(file.getFilePath());
+    }
+
+    @Override
+    @Transactional
+    public List<BoardFileResponseDto> addBoardFiles(int boardId, List<MultipartFile> files) {
+        BoardResponseDto board = boardMapper.selectBoardById(boardId);
+
+        if (board == null) {
+            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
+        }
+
+        if (files != null && !files.isEmpty()) {
+            for (MultipartFile file : files) {
+                if (file.isEmpty()) {
+                    continue;
+                }
+
+                BoardFileDto uploadedFile = s3FileService.uploadBoardFile(boardId, file);
+
+                boardFileMapper.insertBoardFile(uploadedFile);
+            }
+        }
+
+        return boardFileMapper.selectFilesByBoardId(boardId);
+    }
+
+    @Override
+    @Transactional
+    public void deleteBoardFile(int boardId, int fileId) {
+        BoardFileDto file = boardFileMapper.selectFileById(boardId, fileId);
+
+        if (file == null) {
+            throw new IllegalArgumentException("파일을 찾을 수 없습니다.");
+        }
+
+        int result = boardFileMapper.softDeleteFile(boardId, fileId);
+
+        if (result != 1) {
+            throw new IllegalStateException("파일 삭제 처리에 실패했습니다.");
+        }
+    }
 }

@@ -82,7 +82,11 @@
         AND deleted = 1
     </select>
 
-    <insert id="insertBoard" parameterType="com.sanavi.backend.board.dto.BoardRequestDto">
+    <insert id="insertBoard" 
+            parameterType="com.sanavi.backend.board.dto.BoardRequestDto"
+            useGeneratedKeys="true"
+            keyProperty="boardId"
+            keyColumn="id">
         INSERT INTO board (
             user_id,
             nickname,
