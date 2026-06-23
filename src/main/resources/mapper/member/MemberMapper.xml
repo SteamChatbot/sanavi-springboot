@@ -97,6 +97,7 @@
             gender = #{request.gender}
         WHERE user_id = #{userId}
         AND deleted = 1
+    </update>
 
     <update id="incrementAiCount" parameterType="string">
         UPDATE member
