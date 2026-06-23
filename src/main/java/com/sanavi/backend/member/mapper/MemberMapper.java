@@ -17,9 +17,13 @@ public interface MemberMapper {
 
     int countByEmail(String email);
 
+
     MemberResponseDto findMemberInfoByUserId(String userId);
 
     int updateMemberInfo(
             @Param("userId") String userId,
             @Param("request") MemberUpdateRequestDto request);
+
+    void incrementAiCount(String userId);
+
 }

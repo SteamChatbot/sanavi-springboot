@@ -35,7 +35,7 @@ public class EmailVerificationService {
         }
 
         String code = String.format(
-                "%06d",
+                "%06d", //6자리 정수
                 new SecureRandom().nextInt(1_000_000)
         );
 

@@ -67,6 +67,7 @@
         WHERE email = #{email}
     </select>
 
+
     <select id="findMemberInfoByUserId"
             parameterType="string"
             resultType="com.sanavi.backend.member.dto.MemberResponseDto">
@@ -96,6 +97,11 @@
             gender = #{request.gender}
         WHERE user_id = #{userId}
         AND deleted = 1
+
+    <update id="incrementAiCount" parameterType="string">
+        UPDATE member
+        SET ai_count = ai_count + 1
+        WHERE user_id = #{userId} AND deleted = 1
     </update>
 
 </mapper>
