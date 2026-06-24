@@ -50,7 +50,7 @@ public class AuthController {
 
     @GetMapping("/check-id")
     public ResponseEntity<ApiResponse<CheckIdResponse>> checkUserId(
-            @RequestParam String userId) {
+            @RequestParam("userId") String userId) {
 
         CheckIdResponse response = authService.checkUserId(userId);
 

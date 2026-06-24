@@ -40,17 +40,17 @@ public class BoardController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<BoardListResponseDto>> getBoardList(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "all") String searchType) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "searchType", defaultValue = "all") String searchType) {
         BoardListResponseDto response = boardService.getBoardList(page, size, keyword, searchType);
         return ResponseEntity.ok(ApiResponse.success("게시글 목록 조회 성공", response));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<BoardResponseDto>> getBoardById(
-            @PathVariable int id) {
+            @PathVariable("id") int id) {
         BoardResponseDto response = boardService.getBoardById(id);
 
         return ResponseEntity.ok(
@@ -71,22 +71,22 @@ public class BoardController {
 
     @PatchMapping("/{boardId}")
     public ResponseEntity<ApiResponse<Void>> updateBoard(
-            @PathVariable int boardId,
+            @PathVariable("boardId") int boardId,
             @RequestBody BoardRequestDto requestDto) {
         boardService.updateBoard(boardId, requestDto);
         return ResponseEntity.ok(ApiResponse.success("게시글이 수정되었습니다.", null));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteBoard(@PathVariable int id) {
+    public ResponseEntity<Void> deleteBoard(@PathVariable("id") int id) {
         boardService.deleteBoard(id);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{boardId}/files/{fileId}/download")
     public ResponseEntity<byte[]> downloadFile(
-            @PathVariable int boardId,
-            @PathVariable int fileId) {
+            @PathVariable("boardId") int boardId,
+            @PathVariable("fileId") int fileId) {
         BoardFileDto file = boardService.getBoardFile(boardId, fileId);
         byte[] bytes = boardService.downloadBoardFile(boardId, fileId);
 
@@ -103,7 +103,7 @@ public class BoardController {
 
     @PostMapping(value = "/{boardId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<List<BoardFileResponseDto>>> addBoardFiles(
-            @PathVariable int boardId,
+            @PathVariable("boardId") int boardId,
             @RequestPart(value = "files", required = false) List<MultipartFile> files) {
         List<BoardFileResponseDto> response = boardService.addBoardFiles(boardId, files);
 
@@ -113,8 +113,8 @@ public class BoardController {
 
     @DeleteMapping("/{boardId}/files/{fileId}")
     public ResponseEntity<ApiResponse<Void>> deleteBoardFile(
-            @PathVariable int boardId,
-            @PathVariable int fileId) {
+            @PathVariable("boardId") int boardId,
+            @PathVariable("fileId") int fileId) {
         boardService.deleteBoardFile(boardId, fileId);
 
         return ResponseEntity.ok(

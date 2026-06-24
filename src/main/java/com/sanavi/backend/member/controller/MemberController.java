@@ -24,7 +24,7 @@ public class MemberController {
 
     @GetMapping("/{userId}")
     public ResponseEntity<ApiResponse<MemberResponseDto>> getMemberInfo(
-            @PathVariable String userId
+            @PathVariable("userId") String userId
     ) {
         MemberResponseDto response = memberService.getMemberInfo(userId);
 
@@ -35,7 +35,7 @@ public class MemberController {
 
     @PatchMapping("/{userId}")
     public ResponseEntity<ApiResponse<MemberResponseDto>> updateMemberInfo(
-            @PathVariable String userId,
+            @PathVariable("userId") String userId,
             @RequestBody MemberUpdateRequestDto request
     ) {
         MemberResponseDto response =

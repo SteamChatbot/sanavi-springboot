@@ -50,7 +50,7 @@ public class RequestListController {
 
     @GetMapping("/lawyers/{lawyerId}")
     public ResponseEntity<ApiResponse<LawyerDetailResponseDto>> getLawyerDetail(
-            @PathVariable String lawyerId) {
+            @PathVariable("lawyerId") String lawyerId) {
         LawyerDetailResponseDto response = requestListService.getLawyerDetail(lawyerId);
 
         return ResponseEntity.ok(
@@ -71,7 +71,7 @@ public class RequestListController {
 
     @GetMapping("/requests/sent")
     public ResponseEntity<ApiResponse<List<SentRequestResponseDto>>> getSentRequests(
-            @RequestParam String userId) {
+            @RequestParam("userId") String userId) {
         List<SentRequestResponseDto> response = requestListService.getSentRequests(userId);
 
         return ResponseEntity.ok(
@@ -80,7 +80,7 @@ public class RequestListController {
 
     @GetMapping("/requests/received")
     public ResponseEntity<ApiResponse<List<ReceivedRequestResponseDto>>> getReceivedRequests(
-            @RequestParam String lawyerId) {
+            @RequestParam("lawyerId") String lawyerId) {
         List<ReceivedRequestResponseDto> response = requestListService.getReceivedRequests(lawyerId);
 
         return ResponseEntity.ok(
@@ -89,7 +89,7 @@ public class RequestListController {
 
     @GetMapping("/requests/{matchId}")
     public ResponseEntity<ApiResponse<DirectRequestResponseDto>> getDirectRequestDetail(
-            @PathVariable int matchId) {
+            @PathVariable("matchId") int matchId) {
         DirectRequestResponseDto response = requestListService.getDirectRequestDetail(matchId);
 
         return ResponseEntity.ok(
@@ -98,8 +98,8 @@ public class RequestListController {
 
     @PatchMapping("/requests/{matchId}/accept")
     public ResponseEntity<ApiResponse<Void>> acceptRequest(
-            @PathVariable int matchId,
-            @RequestParam String lawyerId) {
+            @PathVariable("matchId") int matchId,
+            @RequestParam("lawyerId") String lawyerId) {
         requestListService.acceptRequest(matchId, lawyerId);
 
         return ResponseEntity.ok(
@@ -108,7 +108,7 @@ public class RequestListController {
 
     @PatchMapping("/requests/{matchId}/reject")
     public ResponseEntity<ApiResponse<Void>> rejectRequest(
-            @PathVariable int matchId,
+            @PathVariable("matchId") int matchId,
             @RequestBody RequestRejectDto requestDto) {
         requestListService.rejectRequest(matchId, requestDto);
 
@@ -118,8 +118,8 @@ public class RequestListController {
 
     @PatchMapping("/requests/{matchId}/cancel")
     public ResponseEntity<ApiResponse<Void>> cancelRequest(
-            @PathVariable int matchId,
-            @RequestParam String userId) {
+            @PathVariable("matchId") int matchId,
+            @RequestParam("userId") String userId) {
         requestListService.cancelRequest(matchId, userId);
 
         return ResponseEntity.ok(
@@ -128,8 +128,8 @@ public class RequestListController {
 
     @GetMapping("/requests/{matchId}/files/{fileId}/download")
     public ResponseEntity<byte[]> downloadRequestFile(
-            @PathVariable int matchId,
-            @PathVariable int fileId) {
+            @PathVariable("matchId") int matchId,
+            @PathVariable("fileId") int fileId) {
         DirectRequestFileDto file = requestListService.getRequestFile(matchId, fileId);
 
         byte[] bytes = requestListService.downloadRequestFile(matchId, fileId);

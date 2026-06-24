@@ -46,9 +46,9 @@ public class MatchController {
     // 책임:   변호사는 userId 없이 전체 조회, 고객은 userId로 본인 의뢰글만 조회
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<MatchListResponseDto>>> getMatchList(
-            @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String userId) {
+            @RequestParam(name = "page", defaultValue = "1") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "userId", required = false) String userId) {
         PageResponse<MatchListResponseDto> response = matchService.getMatchList(page, size, userId);
         return ResponseEntity.ok(ApiResponse.success("의뢰글 목록 조회 성공", response));
     }
@@ -92,8 +92,8 @@ public class MatchController {
     @PatchMapping("/{matchId}/status")
     public ResponseEntity<ApiResponse<Void>> updateMatchStatus(
             @PathVariable("matchId") int matchId,
-            @RequestParam String status,
-            @RequestParam String userId) {
+            @RequestParam("status") String status,
+            @RequestParam("userId") String userId) {
         matchService.updateMatchStatus(matchId, status, userId);
         return ResponseEntity.ok(ApiResponse.success("상태가 변경되었습니다.", null));
     }

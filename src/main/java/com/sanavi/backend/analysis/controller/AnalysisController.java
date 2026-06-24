@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -75,7 +76,7 @@ public class AnalysisController {
     // Output: AnalysisResponseDto (status, data) — ai-api 응답 그대로 중계
     // 책임:   ai-api에 분석 결과 폴링 위임
     @GetMapping("/{taskId}")
-    public ResponseEntity<Object> getResult(@PathVariable String taskId) {
+    public ResponseEntity<Object> getResult(@PathVariable("taskId") String taskId) {
         try {
             Object response = aiApiClient.get()
                 .uri("/api/analysis/{taskId}", taskId)
@@ -115,7 +116,7 @@ public class AnalysisController {
     // Output: List<AnalysisHistoryItemDto> — ai-api 응답 그대로 중계
     // 책임:   ai-api에 이력 조회 위임
     @GetMapping("/history/{userId}")
-    public ResponseEntity<Object> getHistory(@PathVariable String userId) {
+    public ResponseEntity<Object> getHistory(@PathVariable("userId") String userId) {
         try {
             Object response = aiApiClient.get()
                 .uri("/api/analysis/history/{userId}", userId)
@@ -135,8 +136,8 @@ public class AnalysisController {
     // 책임:   ai-api에 논리 삭제 위임
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Object> deleteAnalysis(
-            @PathVariable String taskId,
-            @RequestParam String userId) {
+            @PathVariable("taskId") String taskId,
+            @RequestParam("userId") String userId) {
         try {
             aiApiClient.delete()
                 .uri(uriBuilder -> uriBuilder
