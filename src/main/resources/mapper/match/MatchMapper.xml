@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.match.mapper.MatchMapper">
+
+    <!-- 목록 조회 (변호사: 전체 / 고객: 본인 것만) -->
+    <select id="selectMatchList" resultType="com.sanavi.backend.match.dto.MatchListResponseDto">
+        SELECT
+            m.id          AS matchId,
+            m.user_id     AS userId,
+            m.title,
+            m.price,
+            m.status,
+            m.match_type  AS matchType,
+            m.created_at  AS createdAt
+        FROM `match` m
+        WHERE m.deleted = 1
+        <if test="userId != null and userId != ''">
+            AND m.user_id = #{userId}
+        </if>
+        ORDER BY m.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="selectMatchCount" resultType="int">
+        SELECT COUNT(*)
+        FROM `match`
+        WHERE deleted = 1
+        <if test="userId != null and userId != ''">
+            AND user_id = #{userId}
+        </if>
+    </select>
+
+    <!-- 상세 조회 (member JOIN → 의뢰자명·연락처 포함) -->
+    <select id="selectMatchById" resultType="com.sanavi.backend.match.dto.MatchResponseDto">
+        SELECT
+            m.id            AS matchId,
+            m.user_id       AS userId,
+            mb.name         AS requesterName,
+            mb.phone,
+            m.title,
+            m.content,
+            m.price,
+            m.status,
+            m.match_type    AS matchType,
+            m.created_at    AS createdAt
+        FROM `match` m
+        JOIN member mb ON m.user_id = mb.user_id
+        WHERE m.id = #{matchId}
+          AND m.deleted = 1
+    </select>
+
+    <insert id="insertMatch" parameterType="com.sanavi.backend.match.dto.MatchRequestDto"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO `match` (
+            user_id,
+            title,
+            content,
+            price,
+            status,
+            match_type,
+            created_at
+        ) VALUES (
+            #{userId},
+            #{title},
+            #{content},
+            #{price},
+            'OPEN',
+            #{matchType},
+            NOW()
+        )
+    </insert>
+
+    <!-- 상태 변경 (OPEN→BIDDING→CLOSED / CANCELLED) -->
+    <update id="updateMatchStatus">
+        UPDATE `match`
+        SET status = #{status}
+        WHERE id = #{matchId}
+          AND deleted = 1
+    </update>
+
+    <select id="selectMatchOwner" resultType="string">
+        SELECT user_id FROM `match` WHERE id = #{matchId} AND deleted = 1
+    </select>
+
+    <update id="deleteMatch">
+        UPDATE `match`
+        SET deleted = 0
+        WHERE id = #{matchId}
+          AND deleted = 1
+    </update>
+
+</mapper>
