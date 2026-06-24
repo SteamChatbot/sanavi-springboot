@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.requestlist.mapper.RequestListMapper">
+
+    <select id="selectLawyerList"
+            resultType="com.sanavi.backend.requestlist.dto.LawyerListResponseDto">
+        SELECT
+            ml.user_id AS lawyerId,
+            m.name AS lawyerName,
+            ml.firm_name AS firmName,
+            ml.region AS region,
+            ml.experience_years AS experienceYears,
+            ml.specialty AS specialty
+        FROM member_lawyers ml
+        JOIN member m
+          ON ml.user_id = m.user_id
+        WHERE m.deleted = 1
+        ORDER BY ml.experience_years DESC, m.name ASC
+    </select>
+
+    <select id="selectLawyerDetail"
+            resultType="com.sanavi.backend.requestlist.dto.LawyerDetailResponseDto">
+        SELECT
+            ml.user_id AS lawyerId,
+            m.name AS lawyerName,
+            ml.firm_name AS firmName,
+            ml.region AS region,
+            ml.experience_years AS experienceYears,
+            ml.specialty AS specialty,
+            m.email AS email,
+            m.phone AS phone
+        FROM member_lawyers ml
+        JOIN member m
+          ON ml.user_id = m.user_id
+        WHERE ml.user_id = #{lawyerId}
+          AND m.deleted = 1
+    </select>
+
+    <insert id="insertDirectMatch"
+            parameterType="com.sanavi.backend.requestlist.dto.DirectRequestCreateDto"
+            useGeneratedKeys="true"
+            keyProperty="matchId"
+            keyColumn="id">
+        INSERT INTO `match` (
+            user_id,
+            title,
+            content,
+            price,
+            status,
+            match_type
+        ) VALUES (
+            #{userId},
+            #{title},
+            #{content},
+            #{price},
+            'PENDING',
+            'DIRECT'
+        )
+    </insert>
+
+    <insert id="insertDirectBid">
+        INSERT INTO match_bid (
+            match_id,
+            lawyer_id,
+            bid_price,
+            status,
+            message
+        ) VALUES (
+            #{matchId},
+            #{request.lawyerId},
+            #{request.price},
+            'PENDING',
+            NULL
+        )
+    </insert>
+
+    <insert id="insertDirectRequestFile"
+            parameterType="com.sanavi.backend.requestlist.dto.DirectRequestFileDto">
+        INSERT INTO match_file (
+            match_id,
+            original_name,
+            saved_name,
+            file_path,
+            file_size,
+            file_type
+        ) VALUES (
+            #{matchId},
+            #{originalName},
+            #{savedName},
+            #{filePath},
+            #{fileSize},
+            #{fileType}
+        )
+    </insert>
+
+    <select id="selectFilesByMatchId"
+            resultType="com.sanavi.backend.requestlist.dto.DirectRequestFileResponseDto">
+        SELECT
+            id AS fileId,
+            original_name AS originalName,
+            file_size AS fileSize,
+            file_type AS fileType,
+            CONCAT('/api/requestlist/requests/', match_id, '/files/', id, '/download') AS downloadUrl
+        FROM match_file
+        WHERE match_id = #{matchId}
+          AND deleted = 1
+        ORDER BY id ASC
+    </select>
+
+    <select id="selectDirectRequestDetail"
+            resultType="com.sanavi.backend.requestlist.dto.DirectRequestResponseDto">
+        SELECT
+            mt.id AS matchId,
+            mt.user_id AS userId,
+            requester.name AS requesterName,
+            mb.lawyer_id AS lawyerId,
+            lawyer.name AS lawyerName,
+            ml.firm_name AS firmName,
+            mt.title AS title,
+            mt.content AS content,
+            mt.price AS price,
+            mt.status AS matchStatus,
+            mb.status AS requestStatus,
+            mt.created_at AS createdAt
+        FROM `match` mt
+        JOIN member requester
+        ON mt.user_id = requester.user_id
+        JOIN match_bid mb
+        ON mt.id = mb.match_id
+        JOIN member lawyer
+        ON mb.lawyer_id = lawyer.user_id
+        JOIN member_lawyers ml
+        ON mb.lawyer_id = ml.user_id
+        WHERE mt.id = #{matchId}
+        AND mt.match_type = 'DIRECT'
+        AND mt.deleted = 1
+        AND mb.deleted = 1
+    </select>
+
+    <select id="selectSentRequests"
+            resultType="com.sanavi.backend.requestlist.dto.SentRequestResponseDto">
+        SELECT
+            mt.id AS matchId,
+            mb.lawyer_id AS lawyerId,
+            lawyer.name AS lawyerName,
+            ml.firm_name AS firmName,
+            mt.title AS title,
+            mt.price AS price,
+            mt.status AS matchStatus,
+            mb.status AS requestStatus,
+            mt.created_at AS createdAt
+        FROM `match` mt
+        JOIN match_bid mb
+        ON mt.id = mb.match_id
+        JOIN member lawyer
+        ON mb.lawyer_id = lawyer.user_id
+        JOIN member_lawyers ml
+        ON mb.lawyer_id = ml.user_id
+        WHERE mt.user_id = #{userId}
+        AND mt.match_type = 'DIRECT'
+        AND mt.deleted = 1
+        AND mb.deleted = 1
+        ORDER BY mt.created_at DESC
+    </select>
+
+    <select id="selectReceivedRequests"
+            resultType="com.sanavi.backend.requestlist.dto.ReceivedRequestResponseDto">
+        SELECT
+            mt.id AS matchId,
+            mt.user_id AS requesterId,
+            requester.name AS requesterName,
+            mt.title AS title,
+            mt.content AS content,
+            mt.price AS price,
+            mt.status AS matchStatus,
+            mb.status AS requestStatus,
+            mt.created_at AS createdAt
+        FROM match_bid mb
+        JOIN `match` mt
+        ON mb.match_id = mt.id
+        JOIN member requester
+        ON mt.user_id = requester.user_id
+        WHERE mb.lawyer_id = #{lawyerId}
+        AND mt.match_type = 'DIRECT'
+        AND mt.deleted = 1
+        AND mb.deleted = 1
+        ORDER BY mt.created_at DESC
+    </select>
+
+    <select id="selectRequestFileById"
+            resultType="com.sanavi.backend.requestlist.dto.DirectRequestFileDto">
+        SELECT
+            id AS fileId,
+            match_id AS matchId,
+            original_name AS originalName,
+            saved_name AS savedName,
+            file_path AS filePath,
+            file_size AS fileSize,
+            file_type AS fileType,
+            created_at AS createdAt
+        FROM match_file
+        WHERE match_id = #{matchId}
+        AND id = #{fileId}
+        AND deleted = 1
+    </select>
+
+    <update id="acceptDirectBid">
+        UPDATE match_bid
+        SET status = 'ACCEPTED'
+        WHERE match_id = #{matchId}
+        AND lawyer_id = #{lawyerId}
+        AND status = 'PENDING'
+        AND deleted = 1
+    </update>
+
+    <update id="rejectDirectBid">
+        UPDATE match_bid
+        SET
+            status = 'REJECTED',
+            message = #{message}
+        WHERE match_id = #{matchId}
+        AND lawyer_id = #{lawyerId}
+        AND status = 'PENDING'
+        AND deleted = 1
+    </update>
+
+    <update id="updateDirectMatchStatus">
+        UPDATE `match`
+        SET status = #{status}
+        WHERE id = #{matchId}
+        AND match_type = 'DIRECT'
+        AND deleted = 1
+    </update>
+
+    <update id="cancelDirectMatch">
+        UPDATE `match`
+        SET status = 'CANCELED'
+        WHERE id = #{matchId}
+        AND user_id = #{userId}
+        AND match_type = 'DIRECT'
+        AND status = 'PENDING'
+        AND deleted = 1
+    </update>
+
+    <update id="cancelDirectBidByMatchId">
+        UPDATE match_bid
+        SET status = 'CANCELED'
+        WHERE match_id = #{matchId}
+        AND status = 'PENDING'
+        AND deleted = 1
+    </update>
+
+</mapper>

@@ -23,6 +23,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/members/**").permitAll()
                         .requestMatchers("/api/boards/**").permitAll()
+                        .requestMatchers("/api/requestlist/**").permitAll()
                         .anyRequest().permitAll());
 
         return http.build();

@@ -96,8 +96,8 @@ public class BoardController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
-                .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .contentLength(bytes.length)
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(bytes);
     }
 
