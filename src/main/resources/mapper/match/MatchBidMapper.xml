@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.match.mapper.MatchBidMapper">
+
+    <!-- 입찰 목록 조회 (입찰가 낮은 순, 변호사 정보 포함) -->
+    <select id="selectBidListByMatchId" resultType="com.sanavi.backend.match.dto.MatchBidResponseDto">
+        SELECT
+            b.id          AS bidId,
+            b.match_id    AS matchId,
+            b.lawyer_id   AS lawyerId,
+            m.name        AS lawyerName,
+            m.job         AS lawyerJob,
+            ml.experience_years AS careerYears,
+            b.bid_price   AS bidPrice,
+            b.status,
+            b.message,
+            b.created_at  AS createdAt
+        FROM match_bid b
+        JOIN member m ON b.lawyer_id = m.user_id
+        LEFT JOIN member_lawyers ml ON b.lawyer_id = ml.user_id
+        WHERE b.match_id = #{matchId}
+          AND b.deleted = 1
+        ORDER BY b.bid_price ASC
+    </select>
+
+    <select id="selectBidById" resultType="com.sanavi.backend.match.dto.MatchBidResponseDto">
+        SELECT
+            b.id          AS bidId,
+            b.match_id    AS matchId,
+            b.lawyer_id   AS lawyerId,
+            m.name        AS lawyerName,
+            m.job         AS lawyerJob,
+            ml.experience_years AS careerYears,
+            b.bid_price   AS bidPrice,
+            b.status,
+            b.message,
+            b.created_at  AS createdAt
+        FROM match_bid b
+        JOIN member m ON b.lawyer_id = m.user_id
+        LEFT JOIN member_lawyers ml ON b.lawyer_id = ml.user_id
+        WHERE b.id = #{bidId}
+          AND b.deleted = 1
+    </select>
+
+    <!-- 중복 입찰 방지 (같은 의뢰글에 같은 변호사가 이미 입찰했는지 확인) -->
+    <select id="countActiveBidByLawyer" resultType="int">
+        SELECT COUNT(*)
+        FROM match_bid
+        WHERE match_id = #{matchId}
+          AND lawyer_id = #{lawyerId}
+          AND deleted = 1
+    </select>
+
+    <insert id="insertBid" parameterType="com.sanavi.backend.match.dto.MatchBidRequestDto">
+        INSERT INTO match_bid (
+            match_id,
+            lawyer_id,
+            bid_price,
+            status,
+            message,
+            created_at
+        ) VALUES (
+            #{matchId},
+            #{lawyerId},
+            #{bidPrice},
+            'PENDING',
+            #{message},
+            NOW()
+        )
+    </insert>
+
+    <!-- 입찰 상태 변경 (PENDING→SELECTED / PENDING→REJECTED) -->
+    <update id="updateBidStatus">
+        UPDATE match_bid
+        SET status = #{status}
+        WHERE id = #{bidId}
+          AND deleted = 1
+    </update>
+
+    <!-- 한 의뢰글의 나머지 입찰 일괄 REJECTED 처리 (확정 시 사용) -->
+    <update id="rejectOtherBids">
+        UPDATE match_bid
+        SET status = 'REJECTED'
+        WHERE match_id = #{matchId}
+          AND id != #{selectedBidId}
+          AND deleted = 1
+    </update>
+
+    <update id="deleteBid">
+        UPDATE match_bid
+        SET deleted = 0
+        WHERE id = #{bidId}
+          AND deleted = 1
+    </update>
+
+</mapper>
