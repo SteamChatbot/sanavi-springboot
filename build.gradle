@@ -40,6 +40,8 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'      // JUnit5, Mockito 등 테스트 기본 셋
 	testImplementation 'org.springframework.security:spring-security-test'      // Security 테스트 지원 (@WithMockUser 등)
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'                // JUnit 플랫폼 실행기
+	implementation platform('software.amazon.awssdk:bom:2.25.70')				// aws 플랫폼
+	implementation 'software.amazon.awssdk:s3'									// s3
 }
 
 tasks.withType(JavaCompile).configureEach {

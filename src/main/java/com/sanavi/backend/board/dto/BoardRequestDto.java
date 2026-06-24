@@ -10,4 +10,5 @@ public class BoardRequestDto {
     private String nickname;
     private String title;
     private String content;
+    private int boardId;
 }
