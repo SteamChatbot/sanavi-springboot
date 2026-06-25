@@ -28,6 +28,7 @@ import com.sanavi.backend.match.dto.MatchFileDto;
 import com.sanavi.backend.match.dto.MatchRequestDto;
 import com.sanavi.backend.match.dto.MatchResponseDto;
 import com.sanavi.backend.match.mapper.MatchFileMapper;
+import com.sanavi.backend.match.service.MatchNotificationService;
 import com.sanavi.backend.match.service.MatchService;
 
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ import lombok.RequiredArgsConstructor;
 public class MatchController {
 
     private final MatchService matchService;
+    private final MatchNotificationService matchNotificationService;
     private final MatchFileMapper matchFileMapper;
     private final S3Service s3Service;
 
@@ -136,6 +138,8 @@ public class MatchController {
             @PathVariable("matchId") int matchId,
             @PathVariable("bidId") int bidId) {
         matchService.selectBid(matchId, bidId);
+        // 트랜잭션 커밋 후 메일 발송 — 발송 실패가 확정 결과에 영향 없음
+        matchNotificationService.sendMatchConfirmed(matchId, bidId);
         return ResponseEntity.ok(ApiResponse.success("입찰이 확정되었습니다.", null));
     }
 

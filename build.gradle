@@ -25,6 +25,10 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-web'           // REST API (Spring MVC, Tomcat 내장)
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'      // /actuator/* 엔드포인트 활성화 (health, prometheus 등)
+	implementation 'io.micrometer:micrometer-registry-prometheus'               // /actuator/prometheus 노출 — Prometheus 서버가 이 URL을 주기적으로 스크래핑
+	implementation 'org.springframework.boot:spring-boot-starter-aop'           // AOP (LoggingAspect)
+	implementation 'net.logstash.logback:logstash-logback-encoder:7.4'          // JSON 로그 (운영 환경)
 	implementation 'org.springframework.boot:spring-boot-starter-security'      // 인증/인가 (JWT 필터 체인, CORS 등)
 	implementation 'org.springframework.boot:spring-boot-starter-validation'    // 요청값 검증 (@Valid, @NotBlank 등)
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'    // Redis 연동 (RefreshToken 저장)

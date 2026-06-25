@@ -42,7 +42,34 @@ jwt:
 ai-api:
   url: ${AI_API_URL:http://localhost:8081}
 
+app:
+  base-url: ${APP_BASE_URL:https://sanavi.co.kr}
+
 aws:
   region: ${AWS_REGION:ap-northeast-2}
   s3:
     bucket: ${AWS_S3_BUCKET:sanavi-dev-files}
+
+# -----------------------------------------------------------------------
+# 고려사항: JVM GC 튜닝 (Dockerfile 작성 시 참고)
+# 현재 G1GC 기본값 사용 중 — 아래 조건 충족 시 ZGC 전환 검토
+#   - 추가 질의 응답시간 2~3초 + 동시 사용자 수백명 이상
+#   - Grafana JVM 대시보드에서 GC pause time 이 체감될 정도로 잡힐 때
+# 전환 방법: Dockerfile에 아래 한 줄 추가
+#   ENV JAVA_OPTS="-XX:+UseZGC -Xms256m -Xmx512m"
+# -----------------------------------------------------------------------
+
+management:
+  endpoints:
+    web:
+      exposure:
+        # prometheus: Prometheus 서버가 스크래핑할 메트릭 엔드포인트 (/actuator/prometheus)
+        # health: 로드밸런서·배포 도구가 서버 상태 확인용으로 사용 (/actuator/health)
+        include: health, prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      # Grafana에서 여러 서비스(backend, ai-api) 메트릭을 한 대시보드에 올릴 때 구분 레이블
+      application: sanavi-backend

@@ -16,7 +16,9 @@ import com.sanavi.backend.member.dto.Member;
 import com.sanavi.backend.member.mapper.MemberMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -25,6 +27,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationService emailVerificationService;
 
+    // 격리수준: REPEATABLE_READ (MariaDB 기본값)
+    // 중복 체크(SELECT) → INSERT 사이에 다른 트랜잭션이 같은 userId로 INSERT해도
+    // DB unique 제약이 최종 방어선 — 격리수준만으론 race condition 완전 방지 불가
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         if (memberMapper.countByUserId(request.getUserId()) > 0) {
@@ -58,6 +63,8 @@ public class AuthService {
 
         emailVerificationService.deleteVerification(request.getEmail());
 
+        // 회원가입은 감사(audit) 목적상 항상 기록 — userId로 이후 활동 추적 가능
+        log.info("회원가입 완료 — userId={}", member.getUserId());
         return new SignupResponse(member.getUserId(), member.getName());
     }
 
@@ -66,14 +73,18 @@ public class AuthService {
 
         if (member == null ||
                 !passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            throw new LoginFailedException(
-                    "아이디 또는 비밀번호가 올바르지 않습니다.");
+            // WARN: 로그인 실패는 보안 이벤트 — 반복 실패 패턴 감지용
+            log.warn("로그인 실패 — userId={}", request.getUserId());
+            throw new LoginFailedException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
+        // 로그인 성공도 감사 목적 기록
+        log.info("로그인 성공 — userId={} role={}", member.getUserId(), member.getRole());
         return new LoginResponse(
                 member.getUserId(),
                 member.getName(),
-                member.getRole());
+                member.getRole(),
+                member.getSubscribe());
     }
 
     public CheckIdResponse checkUserId(String userId) {

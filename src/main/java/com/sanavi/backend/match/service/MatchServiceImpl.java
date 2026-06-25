@@ -23,9 +23,11 @@ import com.sanavi.backend.match.mapper.MatchFileMapper;
 import com.sanavi.backend.match.mapper.MatchMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 // 책임: MatchService 구현체 — 의뢰글·입찰·첨부파일 비즈니스 로직 처리
 //       PDF 파일은 S3 "match/" 폴더에 업로드, file_path에 S3 URL 저장
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MatchServiceImpl implements MatchService {
@@ -47,7 +49,11 @@ public class MatchServiceImpl implements MatchService {
 
     // Input:  matchId (의뢰글 PK)
     // Output: MatchResponseDto — files 필드에 첨부파일 목록 세팅
+    // 격리수준: REPEATABLE_READ (MariaDB 기본값) / readOnly
+    // readOnly: 공유락만 사용 → 불필요한 배타락 방지, MyBatis 더티체킹 스킵
+    // 두 쿼리(match + files)가 동일 스냅샷을 봄 → 사이에 다른 트랜잭션이 수정해도 일관된 결과
     @Override
+    @Transactional(readOnly = true)
     public MatchResponseDto getMatchById(int matchId) {
         MatchResponseDto match = matchMapper.selectMatchById(matchId);
         if (match != null) {
@@ -76,9 +82,12 @@ public class MatchServiceImpl implements MatchService {
         fileDto.setFileSize(pdf.getSize());
         fileDto.setFileType(getExtension(pdf.getOriginalFilename()));
         matchFileMapper.insertFile(fileDto);
+        // 의뢰글 생성 완료 — matchId와 userId 같이 찍어두면 문의 대응 시 빠르게 조회 가능
+        log.info("의뢰글 생성 완료 — matchId={} userId={}", matchId, requestDto.getUserId());
     }
 
     @Override
+    @Transactional
     public void updateMatchStatus(int matchId, String status, String requestUserId) {
         if ("CANCELLED".equals(status)) {
             String owner = matchMapper.selectMatchOwner(matchId);
@@ -90,15 +99,19 @@ public class MatchServiceImpl implements MatchService {
             }
         }
         matchMapper.updateMatchStatus(matchId, status);
+        // 상태 변경은 되돌리기 어려운 이벤트 — status별 흐름 추적
+        log.info("의뢰 상태 변경 — matchId={} status={}", matchId, status);
     }
 
     @Override
+    @Transactional
     public void deleteMatch(int matchId) {
         matchMapper.deleteMatch(matchId);
         matchFileMapper.deleteFilesByMatchId(matchId);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<MatchBidResponseDto> getBidList(int matchId) {
         return matchBidMapper.selectBidListByMatchId(matchId);
     }
@@ -114,15 +127,22 @@ public class MatchServiceImpl implements MatchService {
         }
     }
 
+    // 격리수준: REPEATABLE_READ (MariaDB 기본값)
+    // 세 번의 UPDATE가 원자적으로 처리 — 중간 실패 시 전체 롤백
+    // SERIALIZABLE이 아니므로 동시에 두 명이 같은 입찰을 확정하는 race condition 이론상 가능
+    // → 실제로는 match 상태를 CLOSED로 먼저 바꾸는 쪽이 이기고, 나머지는 FORBIDDEN 처리
     @Override
     @Transactional
     public void selectBid(int matchId, int bidId) {
         matchBidMapper.updateBidStatus(bidId, "SELECTED");
         matchBidMapper.rejectOtherBids(matchId, bidId);
         matchMapper.updateMatchStatus(matchId, "CLOSED");
+        // 입찰 확정은 핵심 비즈니스 이벤트 — 변호사-의뢰인 매칭 완료를 의미
+        log.info("입찰 확정 — matchId={} bidId={}", matchId, bidId);
     }
 
     @Override
+    @Transactional
     public void rejectBid(int matchId, int bidId, String userId) {
         String owner = matchMapper.selectMatchOwner(matchId);
         if (owner == null || !owner.equals(userId)) {
@@ -132,6 +152,7 @@ public class MatchServiceImpl implements MatchService {
     }
 
     @Override
+    @Transactional
     public void cancelBid(int bidId, String lawyerId) {
         var bid = matchBidMapper.selectBidById(bidId);
         if (bid == null || !bid.getLawyerId().equals(lawyerId)) {

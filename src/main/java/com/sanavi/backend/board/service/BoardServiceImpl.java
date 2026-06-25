@@ -24,7 +24,11 @@ public class BoardServiceImpl implements BoardService {
     private final BoardFileMapper boardFileMapper;
     private final S3FileService s3FileService;
 
+    // 격리수준: REPEATABLE_READ (MariaDB 기본값) / readOnly
+    // contents(목록)와 totalCount(건수) 두 쿼리가 동일 스냅샷을 봄
+    // → 사이에 INSERT가 발생해도 이 트랜잭션 안에선 반영 안 됨 — 페이지네이션 불일치 방지
     @Override
+    @Transactional(readOnly = true)
     public BoardListResponseDto getBoardList(int page, int size, String keyword, String searchType) {
         int offset = (page - 1) * size;
 

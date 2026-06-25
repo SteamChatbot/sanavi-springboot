@@ -1,0 +1,31 @@
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.subscribe.mapper.SubscribeMapper">
+
+    <!-- 현재 구독 상태 조회 -->
+    <select id="selectSubscribe" resultType="int">
+        SELECT subscribe
+        FROM member
+        WHERE user_id = #{userId}
+          AND deleted = 1
+    </select>
+
+    <!-- 구독 활성화: subscribe = 1 (Pro) -->
+    <!-- 고려사항: PG 연동 시 결제 완료 검증 후 호출되도록 변경 가능 -->
+    <update id="activateSubscribe">
+        UPDATE member
+        SET subscribe = 1
+        WHERE user_id = #{userId}
+          AND deleted = 1
+    </update>
+
+    <!-- 구독 취소: subscribe = 0 (Basic) -->
+    <update id="cancelSubscribe">
+        UPDATE member
+        SET subscribe = 0
+        WHERE user_id = #{userId}
+          AND deleted = 1
+    </update>
+
+</mapper>

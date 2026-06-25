@@ -9,4 +9,5 @@ public class LoginResponse {
     private String userId;
     private String name;
     private String role;
+    private int subscribe;
 }
