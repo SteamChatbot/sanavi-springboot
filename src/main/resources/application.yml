@@ -43,7 +43,7 @@ ai-api:
   url: ${AI_API_URL:http://localhost:8081}
 
 app:
-  base-url: ${APP_BASE_URL:https://sanavi.co.kr}
+  base-url: ${APP_BASE_URL:http://localhost:3000}
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
