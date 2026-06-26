@@ -11,12 +11,13 @@ import com.sanavi.backend.member.dto.MemberUpdateRequestDto;
 public interface MemberMapper {
     int insertMember(Member member);
 
+    int insertMemberLawyer(Member member);
+
     Member findByUserId(String userId);
 
     int countByUserId(String userId);
 
     int countByEmail(String email);
-
 
     MemberResponseDto findMemberInfoByUserId(String userId);
 

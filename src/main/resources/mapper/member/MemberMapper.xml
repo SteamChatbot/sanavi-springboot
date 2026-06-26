@@ -15,7 +15,8 @@
             email,
             birth,
             job,
-            gender
+            gender,
+            role
         )
         VALUES (
             #{userId},
@@ -25,7 +26,8 @@
             #{email},
             #{birth},
             #{job},
-            #{gender}
+            #{gender},
+            #{role}
         )
     </insert>
 
@@ -105,4 +107,20 @@
         WHERE user_id = #{userId} AND deleted = 1
     </update>
 
+    <insert id="insertMemberLawyer" parameterType="com.sanavi.backend.member.dto.Member">
+        INSERT INTO member_lawyers (
+            user_id,
+            firm_name,
+            region,
+            experience_years,
+            specialty
+        ) VALUES (
+            #{userId},
+            #{firmName},
+            #{region},
+            #{experienceYears},
+            #{specialty}
+        )
+    </insert>
+    
 </mapper>

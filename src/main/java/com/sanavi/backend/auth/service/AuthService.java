@@ -45,6 +45,12 @@ public class AuthService {
                     "이메일 인증이 완료되지 않았습니다.");
         }
 
+        boolean isLawyer = "role_lawyer".equals(request.getRole());
+
+        if (isLawyer) {
+            validateLawyerSignup(request);
+        }
+
         Member member = new Member();
         member.setUserId(request.getUserId());
         member.setPassword(passwordEncoder.encode(request.getPassword()));
@@ -55,17 +61,54 @@ public class AuthService {
         member.setJob(request.getJob());
         member.setGender(request.getGender());
 
+        // 클라이언트가 role_admin 같은 값을 보내도 저장되지 않도록 서버에서 고정
+        member.setRole(isLawyer ? "role_lawyer" : "role_user");
+
+        if (isLawyer) {
+            member.setFirmName(request.getFirmName().trim());
+
+            member.setRegion(
+                    request.getRegion() == null || request.getRegion().isBlank()
+                            ? "전체"
+                            : request.getRegion().trim());
+
+            member.setExperienceYears(request.getExperienceYears());
+
+            member.setSpecialty(
+                    request.getSpecialty() == null || request.getSpecialty().isBlank()
+                            ? "산재"
+                            : request.getSpecialty().trim());
+        }
+
         int result = memberMapper.insertMember(member);
 
         if (result != 1) {
             throw new IllegalStateException("회원가입 처리에 실패했습니다.");
         }
 
+        if (isLawyer) {
+            int lawyerResult = memberMapper.insertMemberLawyer(member);
+
+            if (lawyerResult != 1) {
+                throw new IllegalStateException("변호사 정보 등록에 실패했습니다.");
+            }
+        }
+
         emailVerificationService.deleteVerification(request.getEmail());
 
         // 회원가입은 감사(audit) 목적상 항상 기록 — userId로 이후 활동 추적 가능
-        log.info("회원가입 완료 — userId={}", member.getUserId());
+        log.info("회원가입 완료 — userId={}", member.getUserId(), member.getRole());
         return new SignupResponse(member.getUserId(), member.getName());
+    }
+
+    private void validateLawyerSignup(SignupRequest request) {
+        if (request.getFirmName() == null || request.getFirmName().isBlank()) {
+            throw new IllegalArgumentException("법률사무소명을 입력해 주세요.");
+        }
+
+        if (request.getExperienceYears() == null || request.getExperienceYears() < 0) {
+            throw new IllegalArgumentException("경력 연수를 올바르게 입력해 주세요.");
+        }
     }
 
     public LoginResponse login(LoginRequest request) {

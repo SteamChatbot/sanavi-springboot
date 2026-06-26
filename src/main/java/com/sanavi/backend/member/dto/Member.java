@@ -24,4 +24,8 @@ public class Member {
     private int deleted;
     private int aiCount;
     private String role;
+    private String firmName;
+    private String region;
+    private Integer experienceYears;
+    private String specialty;
 }
