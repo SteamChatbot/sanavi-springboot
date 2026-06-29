@@ -111,13 +111,17 @@
         INSERT INTO member_lawyers (
             user_id,
             firm_name,
-            region,
+            sido,
+            sigungu,
+            region_detail,
             experience_years,
             specialty
         ) VALUES (
             #{userId},
             #{firmName},
-            #{region},
+            #{sido},
+            #{sigungu},
+            #{regionDetail},
             #{experienceYears},
             #{specialty}
         )

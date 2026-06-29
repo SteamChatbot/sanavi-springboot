@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Program Files/**)",
+      "Read(//c//**)",
+      "Read(//d//**)",
+      "PowerShell(Test-NetConnection -ComputerName localhost -Port 6379 -WarningAction SilentlyContinue)",
+      "Bash(./mvnw clean *)"
+    ]
+  }
+}

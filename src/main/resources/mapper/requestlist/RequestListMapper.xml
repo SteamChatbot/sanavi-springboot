@@ -11,7 +11,7 @@
             ml.user_id AS lawyerId,
             m.name AS lawyerName,
             ml.firm_name AS firmName,
-            ml.region AS region,
+            CONCAT_WS(' ', ml.sido, ml.sigungu, ml.region_detail) AS region,
             ml.experience_years AS experienceYears,
             ml.specialty AS specialty
         FROM member_lawyers ml
@@ -27,7 +27,7 @@
             ml.user_id AS lawyerId,
             m.name AS lawyerName,
             ml.firm_name AS firmName,
-            ml.region AS region,
+            CONCAT_WS(' ', ml.sido, ml.sigungu, ml.region_detail) AS region,
             ml.experience_years AS experienceYears,
             ml.specialty AS specialty,
             m.email AS email,
