@@ -1,6 +1,7 @@
 package com.sanavi.backend.analysis.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sanavi.backend.common.annotation.LogAction;
 import com.sanavi.backend.member.dto.Member;
 import com.sanavi.backend.member.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,8 @@ public class AnalysisController {
     // Input:  분석 폼 데이터 + userId (React 로컬스토리지 user.userId)
     // Output: ai-api 202 응답 (task_id, status)
     // 책임:   구독 플랜별 ai_count 초과 검증 → ai-api 중계 → ai_count 증가
+    @LogAction(action = "분석 요청", domain = "AI",
+            key = "#body['userId'] != null ? 'userId=' + #body['userId'] : 'guest'")
     @PostMapping
     public ResponseEntity<Object> requestAnalysis(@RequestBody Map<String, Object> body) {
         String userId = (String) body.get("userId");
@@ -134,6 +137,8 @@ public class AnalysisController {
     // Input:  taskId (PathVariable), userId (쿼리파라미터 — 소유권 검증)
     // Output: 204 No Content
     // 책임:   ai-api에 논리 삭제 위임
+    @LogAction(action = "분석 삭제", domain = "AI",
+            key = "'taskId=' + #taskId + ' by=' + #userId")
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Object> deleteAnalysis(
             @PathVariable("taskId") String taskId,

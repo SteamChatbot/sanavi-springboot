@@ -22,6 +22,7 @@ import com.sanavi.backend.match.mapper.MatchBidMapper;
 import com.sanavi.backend.match.mapper.MatchFileMapper;
 import com.sanavi.backend.match.mapper.MatchMapper;
 
+import com.sanavi.backend.common.annotation.LogAction;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -65,6 +66,8 @@ public class MatchServiceImpl implements MatchService {
     // Input:  MatchRequestDto (의뢰글 데이터), pdf (MultipartFile)
     // Output: void
     // 책임:   의뢰글 INSERT → S3에 PDF 업로드 → match_file INSERT (단일 트랜잭션)
+    @LogAction(action = "의뢰글 등록", domain = "MATCH",
+            key = "'userId=' + #requestDto.userId + ' title=' + #requestDto.title")
     @Override
     @Transactional
     public void createMatch(MatchRequestDto requestDto, MultipartFile pdf) throws IOException {
@@ -82,10 +85,10 @@ public class MatchServiceImpl implements MatchService {
         fileDto.setFileSize(pdf.getSize());
         fileDto.setFileType(getExtension(pdf.getOriginalFilename()));
         matchFileMapper.insertFile(fileDto);
-        // 의뢰글 생성 완료 — matchId와 userId 같이 찍어두면 문의 대응 시 빠르게 조회 가능
-        log.info("의뢰글 생성 완료 — matchId={} userId={}", matchId, requestDto.getUserId());
     }
 
+    @LogAction(action = "상태 변경", domain = "MATCH",
+            key = "'matchId=' + #matchId + ' → ' + #status + ' by=' + #requestUserId")
     @Override
     @Transactional
     public void updateMatchStatus(int matchId, String status, String requestUserId) {
@@ -99,10 +102,9 @@ public class MatchServiceImpl implements MatchService {
             }
         }
         matchMapper.updateMatchStatus(matchId, status);
-        // 상태 변경은 되돌리기 어려운 이벤트 — status별 흐름 추적
-        log.info("의뢰 상태 변경 — matchId={} status={}", matchId, status);
     }
 
+    @LogAction(action = "의뢰글 삭제", domain = "MATCH", key = "'matchId=' + #matchId")
     @Override
     @Transactional
     public void deleteMatch(int matchId) {
@@ -116,6 +118,8 @@ public class MatchServiceImpl implements MatchService {
         return matchBidMapper.selectBidListByMatchId(matchId);
     }
 
+    @LogAction(action = "입찰 등록", domain = "MATCH",
+            key = "'matchId=' + #requestDto.matchId + ' lawyerId=' + #requestDto.lawyerId")
     @Override
     @Transactional
     public void createBid(MatchBidRequestDto requestDto) {
@@ -131,16 +135,18 @@ public class MatchServiceImpl implements MatchService {
     // 세 번의 UPDATE가 원자적으로 처리 — 중간 실패 시 전체 롤백
     // SERIALIZABLE이 아니므로 동시에 두 명이 같은 입찰을 확정하는 race condition 이론상 가능
     // → 실제로는 match 상태를 CLOSED로 먼저 바꾸는 쪽이 이기고, 나머지는 FORBIDDEN 처리
+    @LogAction(action = "입찰 확정", domain = "MATCH",
+            key = "'matchId=' + #matchId + ' bidId=' + #bidId + ' → 매칭 완료'")
     @Override
     @Transactional
     public void selectBid(int matchId, int bidId) {
         matchBidMapper.updateBidStatus(bidId, "SELECTED");
         matchBidMapper.rejectOtherBids(matchId, bidId);
         matchMapper.updateMatchStatus(matchId, "CLOSED");
-        // 입찰 확정은 핵심 비즈니스 이벤트 — 변호사-의뢰인 매칭 완료를 의미
-        log.info("입찰 확정 — matchId={} bidId={}", matchId, bidId);
     }
 
+    @LogAction(action = "입찰 거절", domain = "MATCH",
+            key = "'matchId=' + #matchId + ' bidId=' + #bidId + ' by=' + #userId")
     @Override
     @Transactional
     public void rejectBid(int matchId, int bidId, String userId) {
@@ -151,6 +157,8 @@ public class MatchServiceImpl implements MatchService {
         matchBidMapper.updateBidStatus(bidId, "REJECTED");
     }
 
+    @LogAction(action = "입찰 취소", domain = "MATCH",
+            key = "'bidId=' + #bidId + ' lawyerId=' + #lawyerId")
     @Override
     @Transactional
     public void cancelBid(int bidId, String lawyerId) {

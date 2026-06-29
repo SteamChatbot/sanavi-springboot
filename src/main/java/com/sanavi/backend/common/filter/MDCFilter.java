@@ -1,16 +1,17 @@
 package com.sanavi.backend.common.filter;
 
+import java.io.IOException;
+import java.util.UUID;
+
+import org.slf4j.MDC;
+import org.springframework.stereotype.Component;
+
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.MDC;
-import org.springframework.stereotype.Component;
-
-import java.io.IOException;
-import java.util.UUID;
 
 @Component
 public class MDCFilter implements Filter {
@@ -30,6 +31,7 @@ public class MDCFilter implements Filter {
             MDC.clear();
         }
     }
+  
 
     /**
      * 요청에서 user_id를 추출한다.
