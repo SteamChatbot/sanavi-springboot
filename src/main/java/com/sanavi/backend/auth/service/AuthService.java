@@ -12,6 +12,7 @@ import com.sanavi.backend.auth.dto.SignupResponse;
 import com.sanavi.backend.common.exception.DuplicateMemberException;
 import com.sanavi.backend.common.exception.EmailVerificationException;
 import com.sanavi.backend.common.exception.LoginFailedException;
+import com.sanavi.backend.common.exception.MemberNotFoundException;
 import com.sanavi.backend.member.dto.Member;
 import com.sanavi.backend.member.mapper.MemberMapper;
 
@@ -133,5 +134,12 @@ public class AuthService {
     public CheckIdResponse checkUserId(String userId) {
         boolean available = memberMapper.countByUserId(userId) == 0;
         return new CheckIdResponse(available);
+    }
+
+    /** refresh 엔드포인트에서 새 AT 발급 시 최신 role 조회용 */
+    public String findRole(String userId) {
+        Member member = memberMapper.findByUserId(userId);
+        if (member == null) throw new MemberNotFoundException("존재하지 않는 회원입니다.");
+        return member.getRole();
     }
 }

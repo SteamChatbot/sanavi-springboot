@@ -1,22 +1,29 @@
 package com.sanavi.backend.common.filter;
 
-import java.io.IOException;
-import java.util.UUID;
-
-import org.slf4j.MDC;
-import org.springframework.stereotype.Component;
-
+import com.sanavi.backend.security.JwtProvider;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class MDCFilter implements Filter {
 
     private static final String SERVICE_NAME = "sanavi-backend";
+
+    private final JwtProvider jwtProvider;
 
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain)
@@ -27,33 +34,37 @@ public class MDCFilter implements Filter {
             MDC.put("clientIp", resolveClientIp(req));
             chain.doFilter(req, res);
         } finally {
-            // ThreadLocal 기반이라 반드시 cleanup — 없으면 스레드 풀에서 이전 trace_id가 다음 요청에 묻어남
             MDC.clear();
         }
     }
-  
 
-    /**
-     * 요청에서 user_id를 추출한다.
-     *
-     * TODO: JWT 구현 후 아래 한 줄로 교체
-     *   Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-     *   if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal()))
-     *       return auth.getName();
-     *   return "anonymous";
-     */
+    // MDCFilter는 Security 필터보다 먼저 실행되므로 SecurityContextHolder 미사용
+    // access_token 쿠키를 직접 파싱해 userId 추출 — 블랙리스트 체크는 생략 (로깅 목적)
     private String resolveUserId(ServletRequest req) {
-        return "anonymous";
+        HttpServletRequest httpReq = (HttpServletRequest) req;
+        String token = extractCookie(httpReq, "access_token");
+        if (token == null) return "anonymous";
+        try {
+            return jwtProvider.parseClaims(token).getSubject();
+        } catch (JwtException | IllegalArgumentException e) {
+            return "anonymous";
+        }
     }
 
-    // Input:  ServletRequest
-    // Output: 실제 클라이언트 IP 문자열
-    // 책임:   로드밸런서·프록시 뒤에서는 실제 IP가 X-Forwarded-For 헤더에 담겨 옴
-    //         직접 접속 시에는 RemoteAddr 사용
     private String resolveClientIp(ServletRequest req) {
         HttpServletRequest httpReq = (HttpServletRequest) req;
         String xff = httpReq.getHeader("X-Forwarded-For");
         return (xff != null && !xff.isBlank()) ? xff.split(",")[0].trim() : httpReq.getRemoteAddr();
+    }
+
+    private String extractCookie(HttpServletRequest req, String name) {
+        Cookie[] cookies = req.getCookies();
+        if (cookies == null) return null;
+        return Arrays.stream(cookies)
+                .filter(c -> name.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
     }
 
     private String randomId() {
