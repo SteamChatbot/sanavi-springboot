@@ -1,6 +1,7 @@
 package com.sanavi.backend.security;
 
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,7 +14,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Configuration
 @RequiredArgsConstructor
@@ -67,8 +68,6 @@ public class SecurityConfig {
 
                         // ── role_admin 전용 ────────────────────────────────────────────
                         // .requestMatchers("/api/admin/**").hasAuthority("role_admin")
-
-                        // JWT 필터 검증 완료 후 위 주석 해제하고 아래 제거
                         .anyRequest().permitAll()
                 );
 

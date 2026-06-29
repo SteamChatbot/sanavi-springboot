@@ -22,7 +22,9 @@ public class SignupRequest {
     private String role;
 
     private String firmName;
-    private String region;
+    private String sido;
+    private String sigungu;
+    private String regionDetail;
     private Integer experienceYears;
     private String specialty;
 }

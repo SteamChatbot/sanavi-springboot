@@ -68,10 +68,9 @@ public class AuthService {
         if (isLawyer) {
             member.setFirmName(request.getFirmName().trim());
 
-            member.setRegion(
-                    request.getRegion() == null || request.getRegion().isBlank()
-                            ? "전체"
-                            : request.getRegion().trim());
+            member.setSido(request.getSido());
+            member.setSigungu(request.getSigungu());
+            member.setRegionDetail(request.getRegionDetail());
 
             member.setExperienceYears(request.getExperienceYears());
 
