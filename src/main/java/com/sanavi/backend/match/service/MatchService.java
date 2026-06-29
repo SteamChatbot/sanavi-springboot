@@ -15,10 +15,15 @@ import com.sanavi.backend.match.dto.MatchResponseDto;
 // 책임: 의뢰글·입찰·첨부파일 비즈니스 로직 계약 정의
 public interface MatchService {
 
-    // Input:  page, size (페이지 정보), userId (null = 전체 / 값 = 해당 유저 필터)
+    // Input:  page, size (페이지 정보), userId (null=전체 / 값=본인 필터)
+    //         status (null=전체 / OPEN·BIDDING·CLOSED·CANCELLED)
+    //         preferredRegion (null=전체 / 시도명)
+    //         minPrice (null/0이하=전체 / 양수=해당 금액 이상)
     // Output: PageResponse<MatchListResponseDto>
     // 책임:   offset 계산 후 목록·전체 카운트 조회, 페이지 메타 포함해 반환
-    PageResponse<MatchListResponseDto> getMatchList(int page, int size, String userId);
+    PageResponse<MatchListResponseDto> getMatchList(
+            int page, int size, String userId,
+            String status, String preferredRegion, Integer minPrice);
 
     // Input:  matchId (의뢰글 PK)
     // Output: MatchResponseDto — 첨부파일 목록 포함 (null 가능)

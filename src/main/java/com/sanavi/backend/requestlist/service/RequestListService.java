@@ -13,9 +13,13 @@ import com.sanavi.backend.requestlist.dto.ReceivedRequestResponseDto;
 import com.sanavi.backend.requestlist.dto.RequestRejectDto;
 import com.sanavi.backend.requestlist.dto.SentRequestResponseDto;
 
+// 책임: 변호사 직접 의뢰 비즈니스 로직 계약 정의
 public interface RequestListService {
 
-    List<LawyerListResponseDto> getLawyerList();
+    // Input:  specialty (null=전체 / 전문분야명 LIKE), sido (null=전체 / 시도명 완전일치)
+    // Output: List<LawyerListResponseDto>
+    // 책임:   LawyerSearchDto 조립 후 Mapper 위임
+    List<LawyerListResponseDto> getLawyerList(String specialty, String sido);
 
     LawyerDetailResponseDto getLawyerDetail(String lawyerId);
 

@@ -30,17 +30,26 @@ public class MatchController {
     private final MatchFileMapper matchFileMapper;
     private final S3Service s3Service;
 
-    // role_user면 본인 의뢰글만, 변호사·비로그인이면 전체
+    // 목적: 의뢰글 목록 조회 — role에 따라 본인 것만 또는 전체 조회
+    // Input:  page, size (페이지 정보)
+    //         status (선택 — OPEN·BIDDING·CLOSED·CANCELLED / 미전달 시 전체)
+    //         preferredRegion (선택 — 시도명 / 미전달 시 전체)
+    //         minPrice (선택 — 이 금액 이상만 / 미전달 시 전체)
+    // Output: PageResponse<MatchListResponseDto> — 페이지 메타 + 의뢰글 목록
+    // 기능:   role_user → JWT userId로 본인 의뢰글만 / 변호사·비로그인 → 전체
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<MatchListResponseDto>>> getMatchList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String preferredRegion,
+            @RequestParam(required = false) Integer minPrice,
             Authentication auth) {
         boolean isUser = auth != null && auth.getAuthorities().stream()
                 .anyMatch(a -> "role_user".equals(a.getAuthority()));
         String userId = isUser ? auth.getName() : null;
         return ResponseEntity.ok(ApiResponse.success("의뢰글 목록 조회 성공",
-                matchService.getMatchList(page, size, userId)));
+                matchService.getMatchList(page, size, userId, status, preferredRegion, minPrice)));
     }
 
     @GetMapping("/{matchId}")

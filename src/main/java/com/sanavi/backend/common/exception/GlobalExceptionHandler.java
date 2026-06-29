@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.sanavi.backend.common.response.ApiResponse;
 
@@ -41,6 +42,12 @@ public class GlobalExceptionHandler {
                         ResponseStatusException exception) {
                 return ResponseEntity.status(exception.getStatusCode())
                                 .body(ApiResponse.failure(exception.getReason()));
+        }
+
+        // favicon.ico 등 정적 리소스 미존재 — 브라우저 자동 요청이므로 로그 없이 404 반환
+        @ExceptionHandler(NoResourceFoundException.class)
+        public ResponseEntity<Void> handleNoResource() {
+                return ResponseEntity.notFound().build();
         }
 
         // 위 핸들러에서 잡히지 않은 모든 예외 — 예상치 못한 시스템 오류 — 500

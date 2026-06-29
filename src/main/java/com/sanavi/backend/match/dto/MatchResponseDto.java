@@ -19,6 +19,7 @@ public class MatchResponseDto {
     private int price;
     private String status;
     private String matchType;
+    private String preferredRegion;
     private LocalDateTime createdAt;
     private List<MatchFileDto> files;
 }

@@ -11,13 +11,14 @@ import com.sanavi.backend.requestlist.dto.DirectRequestFileResponseDto;
 import com.sanavi.backend.requestlist.dto.DirectRequestResponseDto;
 import com.sanavi.backend.requestlist.dto.LawyerDetailResponseDto;
 import com.sanavi.backend.requestlist.dto.LawyerListResponseDto;
+import com.sanavi.backend.requestlist.dto.LawyerSearchDto;
 import com.sanavi.backend.requestlist.dto.ReceivedRequestResponseDto;
 import com.sanavi.backend.requestlist.dto.SentRequestResponseDto;
 
 @Mapper
 public interface RequestListMapper {
 
-    List<LawyerListResponseDto> selectLawyerList();
+    List<LawyerListResponseDto> selectLawyerList(LawyerSearchDto search);
 
     LawyerDetailResponseDto selectLawyerDetail(@Param("lawyerId") String lawyerId);
 

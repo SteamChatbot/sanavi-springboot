@@ -25,10 +25,16 @@ public class RequestListController {
 
     private final RequestListService requestListService;
 
+    // 목적: 변호사 목록 조회 — 전문분야·활동지역 필터 지원
+    // Input:  specialty (선택 — 전문분야명, DB LIKE 검색 / 미전달 시 전체)
+    //         sido (선택 — 시도명, 완전일치 / 미전달 시 전체)
+    // Output: List<LawyerListResponseDto> — lawyerId·lawyerName·firmName·region·experienceYears·specialty
     @GetMapping("/lawyers")
-    public ResponseEntity<ApiResponse<List<LawyerListResponseDto>>> getLawyerList() {
+    public ResponseEntity<ApiResponse<List<LawyerListResponseDto>>> getLawyerList(
+            @RequestParam(required = false) String specialty,
+            @RequestParam(required = false) String sido) {
         return ResponseEntity.ok(ApiResponse.success("변호사 목록 조회 성공",
-                requestListService.getLawyerList()));
+                requestListService.getLawyerList(specialty, sido)));
     }
 
     @GetMapping("/lawyers/{lawyerId}")
