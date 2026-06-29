@@ -11,6 +11,7 @@ import com.sanavi.backend.requestlist.dto.DirectRequestFileDto;
 import com.sanavi.backend.requestlist.dto.DirectRequestResponseDto;
 import com.sanavi.backend.requestlist.dto.LawyerDetailResponseDto;
 import com.sanavi.backend.requestlist.dto.LawyerListResponseDto;
+import com.sanavi.backend.requestlist.dto.LawyerSearchDto;
 import com.sanavi.backend.requestlist.dto.ReceivedRequestResponseDto;
 import com.sanavi.backend.requestlist.dto.RequestRejectDto;
 import com.sanavi.backend.requestlist.dto.SentRequestResponseDto;
@@ -27,8 +28,9 @@ public class RequestListServiceImpl implements RequestListService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<LawyerListResponseDto> getLawyerList() {
-        return requestListMapper.selectLawyerList();
+    public List<LawyerListResponseDto> getLawyerList(String specialty, String sido) {
+        return requestListMapper.selectLawyerList(
+                LawyerSearchDto.builder().specialty(specialty).sido(sido).build());
     }
 
     @Override

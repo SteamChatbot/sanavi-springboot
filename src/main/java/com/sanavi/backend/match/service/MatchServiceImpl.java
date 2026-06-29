@@ -18,6 +18,7 @@ import com.sanavi.backend.match.dto.MatchFileDto;
 import com.sanavi.backend.match.dto.MatchListResponseDto;
 import com.sanavi.backend.match.dto.MatchRequestDto;
 import com.sanavi.backend.match.dto.MatchResponseDto;
+import com.sanavi.backend.match.dto.MatchSearchDto;
 import com.sanavi.backend.match.mapper.MatchBidMapper;
 import com.sanavi.backend.match.mapper.MatchFileMapper;
 import com.sanavi.backend.match.mapper.MatchMapper;
@@ -38,13 +39,23 @@ public class MatchServiceImpl implements MatchService {
     private final MatchFileMapper matchFileMapper;
     private final S3Service s3Service;
 
-    // Input:  page, size, userId (null = 전체 조회 / 값 있으면 해당 유저 필터)
+    // Input:  page, size, userId (null=전체 / 값=본인 필터)
+    //         status, preferredRegion, minPrice — 선택 필터 (null/0이면 조건 무시)
     // Output: PageResponse<MatchListResponseDto>
     @Override
-    public PageResponse<MatchListResponseDto> getMatchList(int page, int size, String userId) {
-        int offset = (page - 1) * size;
-        List<MatchListResponseDto> contents = matchMapper.selectMatchList(offset, size, userId);
-        int totalCount = matchMapper.selectMatchCount(userId);
+    public PageResponse<MatchListResponseDto> getMatchList(
+            int page, int size, String userId,
+            String status, String preferredRegion, Integer minPrice) {
+        MatchSearchDto search = MatchSearchDto.builder()
+                .offset((page - 1) * size)
+                .size(size)
+                .userId(userId)
+                .status(status)
+                .preferredRegion(preferredRegion)
+                .minPrice(minPrice)
+                .build();
+        List<MatchListResponseDto> contents = matchMapper.selectMatchList(search);
+        int totalCount = matchMapper.selectMatchCount(search);
         return new PageResponse<>(contents, page, size, totalCount);
     }
 
