@@ -16,6 +16,8 @@ import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Duration;
 import java.util.Arrays;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/members")
 @RequiredArgsConstructor
@@ -51,7 +54,7 @@ public class AuthController {
     public ResponseEntity<ApiResponse<LoginResponse>> login(@RequestBody LoginRequest request) {
         LoginResponse userInfo = authService.login(request);
 
-        String accessToken  = jwtProvider.generateAccessToken(userInfo.getUserId(), userInfo.getRole());
+        String accessToken = jwtProvider.generateAccessToken(userInfo.getUserId(), userInfo.getRole());
         String refreshToken = jwtProvider.generateRefreshToken(userInfo.getUserId());
 
         tokenService.saveRefreshToken(
@@ -67,7 +70,11 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<Void>> refresh(HttpServletRequest request) {
         String refreshToken = extractCookie(request, "refresh_token");
+
         if (refreshToken == null || !jwtProvider.isValid(refreshToken)) {
+            log.warn(
+                    "action=TOKEN_REFRESH result=FAIL reason=MISSING_OR_INVALID_REFRESH_TOKEN");
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure("유효하지 않은 리프레시 토큰입니다."));
         }
@@ -76,11 +83,21 @@ public class AuthController {
         String userId = claims.getSubject();
 
         if (!refreshToken.equals(tokenService.getRefreshToken(userId))) {
+            log.warn(
+                    "action=TOKEN_REFRESH target_user_id={} result=FAIL reason=REFRESH_TOKEN_MISMATCH_OR_EXPIRED",
+                    userId);
+
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.failure("리프레시 토큰이 만료되었습니다. 다시 로그인해 주세요."));
         }
 
-        String newAccessToken = jwtProvider.generateAccessToken(userId, authService.findRole(userId));
+        String role = authService.findRole(userId);
+        String newAccessToken = jwtProvider.generateAccessToken(userId, role);
+
+        log.info(
+                "action=TOKEN_REFRESH target_user_id={} role={} result=SUCCESS",
+                userId,
+                role);
 
         return ResponseEntity.ok()
                 .header("Set-Cookie", accessTokenCookie(newAccessToken).toString())
@@ -92,19 +109,32 @@ public class AuthController {
             HttpServletRequest request,
             @AuthenticationPrincipal String userId) {
 
+        boolean accessTokenBlacklisted = false;
+        boolean refreshTokenDeleted = false;
+
         String accessToken = extractCookie(request, "access_token");
+
         if (accessToken != null && jwtProvider.isValid(accessToken)) {
             tokenService.blacklistToken(
                     jwtProvider.parseClaims(accessToken).getId(),
                     Duration.ofMillis(jwtProvider.getRemainingMillis(accessToken)));
+
+            accessTokenBlacklisted = true;
         }
 
         if (userId != null) {
             tokenService.deleteRefreshToken(userId);
+            refreshTokenDeleted = true;
         }
 
+        log.info(
+                "action=MEMBER_LOGOUT target_user_id={} access_token_blacklisted={} refresh_token_deleted={} result=SUCCESS",
+                userId != null ? userId : "anonymous",
+                accessTokenBlacklisted,
+                refreshTokenDeleted);
+
         return ResponseEntity.ok()
-                .header("Set-Cookie", clearCookie("access_token",  "/").toString())
+                .header("Set-Cookie", clearCookie("access_token", "/").toString())
                 .header("Set-Cookie", clearCookie("refresh_token", "/api/members/refresh").toString())
                 .body(ApiResponse.success("로그아웃되었습니다.", null));
     }
@@ -148,7 +178,8 @@ public class AuthController {
 
     private String extractCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
-        if (cookies == null) return null;
+        if (cookies == null)
+            return null;
         return Arrays.stream(cookies)
                 .filter(c -> name.equals(c.getName()))
                 .map(Cookie::getValue)

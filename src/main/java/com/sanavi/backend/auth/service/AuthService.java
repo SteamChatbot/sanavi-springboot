@@ -34,14 +34,23 @@ public class AuthService {
     @Transactional
     public SignupResponse signup(SignupRequest request) {
         if (memberMapper.countByUserId(request.getUserId()) > 0) {
+            log.warn(
+                    "action=MEMBER_SIGNUP result=DENIED reason=DUPLICATE_USER_ID target_user_id={}",
+                    request.getUserId());
             throw new DuplicateMemberException("이미 사용 중인 아이디입니다.");
         }
 
         if (memberMapper.countByEmail(request.getEmail()) > 0) {
+            log.warn(
+                    "action=MEMBER_SIGNUP result=DENIED reason=DUPLICATE_EMAIL target_user_id={}",
+                    request.getUserId());
             throw new DuplicateMemberException("이미 사용 중인 이메일입니다.");
         }
 
         if (!emailVerificationService.isVerified(request.getEmail())) {
+            log.warn(
+                    "action=MEMBER_SIGNUP result=DENIED reason=EMAIL_NOT_VERIFIED target_user_id={}",
+                    request.getUserId());
             throw new EmailVerificationException(
                     "이메일 인증이 완료되지 않았습니다.");
         }
@@ -83,6 +92,11 @@ public class AuthService {
         int result = memberMapper.insertMember(member);
 
         if (result != 1) {
+            log.error(
+                    "action=MEMBER_SIGNUP target_user_id={} role={} result=FAIL reason=MEMBER_INSERT_FAILED",
+                    member.getUserId(),
+                    member.getRole());
+
             throw new IllegalStateException("회원가입 처리에 실패했습니다.");
         }
 
@@ -90,6 +104,11 @@ public class AuthService {
             int lawyerResult = memberMapper.insertMemberLawyer(member);
 
             if (lawyerResult != 1) {
+                log.error(
+                        "action=MEMBER_SIGNUP target_user_id={} role={} result=FAIL reason=LAWYER_INFO_INSERT_FAILED",
+                        member.getUserId(),
+                        member.getRole());
+
                 throw new IllegalStateException("변호사 정보 등록에 실패했습니다.");
             }
         }
@@ -97,16 +116,27 @@ public class AuthService {
         emailVerificationService.deleteVerification(request.getEmail());
 
         // 회원가입은 감사(audit) 목적상 항상 기록 — userId로 이후 활동 추적 가능
-        log.info("회원가입 완료 — userId={}", member.getUserId(), member.getRole());
+        log.info(
+                "action=MEMBER_SIGNUP target_user_id={} role={} result=SUCCESS",
+                member.getUserId(),
+                member.getRole());
         return new SignupResponse(member.getUserId(), member.getName());
     }
 
     private void validateLawyerSignup(SignupRequest request) {
         if (request.getFirmName() == null || request.getFirmName().isBlank()) {
+            log.warn(
+                    "action=MEMBER_SIGNUP result=DENIED reason=MISSING_FIRM_NAME target_user_id={}",
+                    request.getUserId());
+
             throw new IllegalArgumentException("법률사무소명을 입력해 주세요.");
         }
 
         if (request.getExperienceYears() == null || request.getExperienceYears() < 0) {
+            log.warn(
+                    "action=MEMBER_SIGNUP result=DENIED reason=INVALID_EXPERIENCE_YEARS target_user_id={}",
+                    request.getUserId());
+
             throw new IllegalArgumentException("경력 연수를 올바르게 입력해 주세요.");
         }
     }
@@ -117,12 +147,17 @@ public class AuthService {
         if (member == null ||
                 !passwordEncoder.matches(request.getPassword(), member.getPassword())) {
             // WARN: 로그인 실패는 보안 이벤트 — 반복 실패 패턴 감지용
-            log.warn("로그인 실패 — userId={}", request.getUserId());
+            log.warn(
+                    "action=MEMBER_LOGIN result=FAIL reason=INVALID_CREDENTIALS target_user_id={}",
+                    request.getUserId());
             throw new LoginFailedException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
         // 로그인 성공도 감사 목적 기록
-        log.info("로그인 성공 — userId={} role={}", member.getUserId(), member.getRole());
+        log.info(
+                "action=MEMBER_LOGIN target_user_id={} role={} result=SUCCESS",
+                member.getUserId(),
+                member.getRole());
         return new LoginResponse(
                 member.getUserId(),
                 member.getName(),
@@ -138,7 +173,8 @@ public class AuthService {
     /** refresh 엔드포인트에서 새 AT 발급 시 최신 role 조회용 */
     public String findRole(String userId) {
         Member member = memberMapper.findByUserId(userId);
-        if (member == null) throw new MemberNotFoundException("존재하지 않는 회원입니다.");
+        if (member == null)
+            throw new MemberNotFoundException("존재하지 않는 회원입니다.");
         return member.getRole();
     }
 }

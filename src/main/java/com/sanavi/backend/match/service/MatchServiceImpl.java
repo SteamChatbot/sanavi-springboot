@@ -54,8 +54,10 @@ public class MatchServiceImpl implements MatchService {
                 .preferredRegion(preferredRegion)
                 .minPrice(minPrice)
                 .build();
+
         List<MatchListResponseDto> contents = matchMapper.selectMatchList(search);
         int totalCount = matchMapper.selectMatchCount(search);
+
         return new PageResponse<>(contents, page, size, totalCount);
     }
 
@@ -68,9 +70,18 @@ public class MatchServiceImpl implements MatchService {
     @Transactional(readOnly = true)
     public MatchResponseDto getMatchById(int matchId) {
         MatchResponseDto match = matchMapper.selectMatchById(matchId);
-        if (match != null) {
-            match.setFiles(matchFileMapper.selectFilesByMatchId(matchId));
+
+        if (match == null) {
+            log.warn(
+                    "action=MATCH_DETAIL_VIEW target_type=match target_id={} result=FAIL reason=MATCH_NOT_FOUND",
+                    matchId
+            );
+
+            return null;
         }
+
+        match.setFiles(matchFileMapper.selectFilesByMatchId(matchId));
+
         return match;
     }
 
@@ -78,41 +89,101 @@ public class MatchServiceImpl implements MatchService {
     // Output: void
     // 책임:   의뢰글 INSERT → S3에 PDF 업로드 → match_file INSERT (단일 트랜잭션)
     @LogAction(action = "의뢰글 등록", domain = "MATCH",
-            key = "'userId=' + #requestDto.userId + ' title=' + #requestDto.title")
+            key = "'userId=' + #requestDto.userId")
     @Override
-    @Transactional
+    @Transactional(rollbackFor = IOException.class)
     public void createMatch(MatchRequestDto requestDto, MultipartFile pdf) throws IOException {
+        if (pdf == null || pdf.isEmpty()) {
+            log.warn(
+                    "action=MATCH_CREATE target_type=match request_user_id={} result=DENIED reason=EMPTY_FILE",
+                    requestDto.getUserId()
+            );
+
+            throw new IllegalArgumentException("첨부파일이 필요합니다.");
+        }
+
         matchMapper.insertMatch(requestDto);
         int matchId = requestDto.getId();
 
-        String savedName = UUID.randomUUID() + "_" + pdf.getOriginalFilename();
-        String s3Url = s3Service.upload(pdf, "match/" + matchId, savedName);
+        if (matchId <= 0) {
+            log.error(
+                    "action=MATCH_CREATE target_type=match request_user_id={} result=FAIL reason=MATCH_ID_NOT_GENERATED",
+                    requestDto.getUserId()
+            );
 
-        MatchFileDto fileDto = new MatchFileDto();
-        fileDto.setMatchId(matchId);
-        fileDto.setOriginalName(pdf.getOriginalFilename());
-        fileDto.setSavedName(savedName);
-        fileDto.setFilePath(s3Url);
-        fileDto.setFileSize(pdf.getSize());
-        fileDto.setFileType(getExtension(pdf.getOriginalFilename()));
-        matchFileMapper.insertFile(fileDto);
+            throw new IllegalStateException("의뢰글 등록에 실패했습니다.");
+        }
+
+        try {
+            String savedName = UUID.randomUUID() + "_" + pdf.getOriginalFilename();
+            String s3Url = s3Service.upload(pdf, "match/" + matchId, savedName);
+
+            MatchFileDto fileDto = new MatchFileDto();
+            fileDto.setMatchId(matchId);
+            fileDto.setOriginalName(pdf.getOriginalFilename());
+            fileDto.setSavedName(savedName);
+            fileDto.setFilePath(s3Url);
+            fileDto.setFileSize(pdf.getSize());
+            fileDto.setFileType(getExtension(pdf.getOriginalFilename()));
+
+            matchFileMapper.insertFile(fileDto);
+
+            log.info(
+                    "action=MATCH_CREATE target_type=match target_id={} request_user_id={} file_count=1 result=SUCCESS",
+                    matchId,
+                    requestDto.getUserId()
+            );
+        } catch (IOException e) {
+            log.error(
+                    "action=MATCH_CREATE target_type=match target_id={} request_user_id={} result=FAIL reason=S3_UPLOAD_FAILED exception={}",
+                    matchId,
+                    requestDto.getUserId(),
+                    e.getClass().getSimpleName()
+            );
+
+            throw e;
+        }
     }
 
     @LogAction(action = "상태 변경", domain = "MATCH",
-            key = "'matchId=' + #matchId + ' → ' + #status + ' by=' + #requestUserId")
+            key = "'matchId=' + #matchId + ' status=' + #status + ' by=' + #requestUserId")
     @Override
     @Transactional
     public void updateMatchStatus(int matchId, String status, String requestUserId) {
         if ("CANCELLED".equals(status)) {
             String owner = matchMapper.selectMatchOwner(matchId);
+
             if (owner == null) {
+                log.warn(
+                        "action=MATCH_STATUS_UPDATE target_type=match target_id={} status={} request_user_id={} result=FAIL reason=MATCH_NOT_FOUND",
+                        matchId,
+                        status,
+                        requestUserId
+                );
+
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "존재하지 않는 의뢰글입니다.");
             }
+
             if (!owner.equals(requestUserId)) {
+                log.warn(
+                        "action=MATCH_STATUS_UPDATE target_type=match target_id={} status={} request_user_id={} result=DENIED reason=NOT_OWNER",
+                        matchId,
+                        status,
+                        requestUserId
+                );
+
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 의뢰글만 취소할 수 있습니다.");
             }
         }
+
         matchMapper.updateMatchStatus(matchId, status);
+
+        log.info(
+                "action=MATCH_STATUS_UPDATE target_type=match target_id={} status={} request_user_id={} result=SUCCESS",
+                matchId,
+                status,
+                requestUserId
+        );
     }
 
     @LogAction(action = "의뢰글 삭제", domain = "MATCH", key = "'matchId=' + #matchId")
@@ -121,6 +192,11 @@ public class MatchServiceImpl implements MatchService {
     public void deleteMatch(int matchId) {
         matchMapper.deleteMatch(matchId);
         matchFileMapper.deleteFilesByMatchId(matchId);
+
+        log.info(
+                "action=MATCH_DELETE target_type=match target_id={} result=SUCCESS",
+                matchId
+        );
     }
 
     @Override
@@ -137,9 +213,16 @@ public class MatchServiceImpl implements MatchService {
         matchBidMapper.insertBid(requestDto);
 
         MatchResponseDto match = matchMapper.selectMatchById(requestDto.getMatchId());
+
         if (match != null && "OPEN".equals(match.getStatus())) {
             matchMapper.updateMatchStatus(requestDto.getMatchId(), "BIDDING");
         }
+
+        log.info(
+                "action=MATCH_BID_CREATE target_type=match target_id={} lawyer_id={} result=SUCCESS",
+                requestDto.getMatchId(),
+                requestDto.getLawyerId()
+        );
     }
 
     // 격리수준: REPEATABLE_READ (MariaDB 기본값)
@@ -147,13 +230,19 @@ public class MatchServiceImpl implements MatchService {
     // SERIALIZABLE이 아니므로 동시에 두 명이 같은 입찰을 확정하는 race condition 이론상 가능
     // → 실제로는 match 상태를 CLOSED로 먼저 바꾸는 쪽이 이기고, 나머지는 FORBIDDEN 처리
     @LogAction(action = "입찰 확정", domain = "MATCH",
-            key = "'matchId=' + #matchId + ' bidId=' + #bidId + ' → 매칭 완료'")
+            key = "'matchId=' + #matchId + ' bidId=' + #bidId + ' status=matched'")
     @Override
     @Transactional
     public void selectBid(int matchId, int bidId) {
         matchBidMapper.updateBidStatus(bidId, "SELECTED");
         matchBidMapper.rejectOtherBids(matchId, bidId);
         matchMapper.updateMatchStatus(matchId, "CLOSED");
+
+        log.info(
+                "action=MATCH_BID_SELECT target_type=match target_id={} bid_id={} result=SUCCESS",
+                matchId,
+                bidId
+        );
     }
 
     @LogAction(action = "입찰 거절", domain = "MATCH",
@@ -162,10 +251,26 @@ public class MatchServiceImpl implements MatchService {
     @Transactional
     public void rejectBid(int matchId, int bidId, String userId) {
         String owner = matchMapper.selectMatchOwner(matchId);
+
         if (owner == null || !owner.equals(userId)) {
+            log.warn(
+                    "action=MATCH_BID_REJECT target_type=match target_id={} bid_id={} request_user_id={} result=DENIED reason=NOT_OWNER_OR_MATCH_NOT_FOUND",
+                    matchId,
+                    bidId,
+                    userId
+            );
+
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 의뢰글에 대한 입찰만 거절할 수 있습니다.");
         }
+
         matchBidMapper.updateBidStatus(bidId, "REJECTED");
+
+        log.info(
+                "action=MATCH_BID_REJECT target_type=match target_id={} bid_id={} request_user_id={} result=SUCCESS",
+                matchId,
+                bidId,
+                userId
+        );
     }
 
     @LogAction(action = "입찰 취소", domain = "MATCH",
@@ -174,10 +279,24 @@ public class MatchServiceImpl implements MatchService {
     @Transactional
     public void cancelBid(int bidId, String lawyerId) {
         var bid = matchBidMapper.selectBidById(bidId);
+
         if (bid == null || !bid.getLawyerId().equals(lawyerId)) {
+            log.warn(
+                    "action=MATCH_BID_CANCEL target_type=match_bid target_id={} lawyer_id={} result=DENIED reason=NOT_OWNER_OR_BID_NOT_FOUND",
+                    bidId,
+                    lawyerId
+            );
+
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "본인의 입찰만 취소할 수 있습니다.");
         }
+
         matchBidMapper.deleteBid(bidId);
+
+        log.info(
+                "action=MATCH_BID_CANCEL target_type=match_bid target_id={} lawyer_id={} result=SUCCESS",
+                bidId,
+                lawyerId
+        );
     }
 
     private String getExtension(String filename) {
