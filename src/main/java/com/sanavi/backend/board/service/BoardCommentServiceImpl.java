@@ -10,7 +10,9 @@ import com.sanavi.backend.board.dto.BoardCommentResponseDto;
 import com.sanavi.backend.board.mapper.BoardCommentMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BoardCommentServiceImpl implements BoardCommentService {
@@ -31,26 +33,48 @@ public class BoardCommentServiceImpl implements BoardCommentService {
         int result = boardCommentMapper.insertComment(boardId, requestDto);
 
         if (result != 1) {
+            log.error(
+                    "action=BOARD_COMMENT_CREATE target_type=board target_id={} result=FAIL reason=INSERT_FAILED",
+                    boardId);
+
             throw new IllegalStateException("댓글 등록에 실패했습니다.");
         }
+
+        log.info(
+                "action=BOARD_COMMENT_CREATE target_type=board target_id={} result=SUCCESS",
+                boardId);
     }
 
     @Override
     @Transactional
     public void deleteComment(int boardId, int commentId, String userId) {
         if (userId == null || userId.isBlank()) {
+            log.warn(
+                    "action=BOARD_COMMENT_DELETE target_type=board_comment target_id={} board_id={} result=DENIED reason=MISSING_USER_ID",
+                    commentId,
+                    boardId);
+
             throw new IllegalArgumentException("사용자 아이디가 필요합니다.");
         }
 
         int result = boardCommentMapper.softDeleteComment(
                 boardId,
                 commentId,
-                userId
-        );
+                userId);
 
         if (result != 1) {
+            log.warn(
+                    "action=BOARD_COMMENT_DELETE target_type=board_comment target_id={} board_id={} result=DENIED reason=NOT_AUTHOR_OR_ALREADY_DELETED",
+                    commentId,
+                    boardId);
+
             throw new IllegalStateException("댓글 삭제 권한이 없거나 이미 삭제된 댓글입니다.");
         }
+
+        log.info(
+                "action=BOARD_COMMENT_DELETE target_type=board_comment target_id={} board_id={} result=SUCCESS",
+                commentId,
+                boardId);
     }
 
     private void validateComment(BoardCommentRequestDto requestDto) {

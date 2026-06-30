@@ -5,12 +5,13 @@
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <!-- [시간] [traceId] LEVEL Logger — 메시지 -->
-                <pattern>%d{HH:mm:ss} [%X{traceId}] [%X{clientIp}] %highlight(%-5level) %logger{40} — %msg%n</pattern>
+                <pattern>%d{HH:mm:ss.SSS} traceId=%X{traceId:-system} userId=%X{userId:-system} role=%X{userRole:-system} ip=%X{clientIp:-system} method=%X{httpMethod:-system} uri=%X{requestUri:-system} handler=%X{handler:-system} %-5level %logger{40} - %msg%n</pattern>
+                <charset>UTF-8</charset>
             </encoder>
         </appender>
 
         <!-- 개발 환경에서만 MyBatis SQL 쿼리 DEBUG로 출력 — 운영에선 INFO로 덮어써짐 -->
-        <logger name="com.sanavi" level="DEBUG"/>
+        <logger name="com.sanavi" level="INFO"/>
 
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
@@ -40,6 +41,12 @@
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
                 <!-- MDC의 traceId가 JSON 필드로 자동 포함됨 -->
                 <includeMdcKeyName>traceId</includeMdcKeyName>
+                <includeMdcKeyName>userId</includeMdcKeyName>
+                <includeMdcKeyName>userRole</includeMdcKeyName>
+                <includeMdcKeyName>clientIp</includeMdcKeyName>
+                <includeMdcKeyName>httpMethod</includeMdcKeyName>
+                <includeMdcKeyName>requestUri</includeMdcKeyName>
+                <includeMdcKeyName>handler</includeMdcKeyName>
             </encoder>
         </appender>
 

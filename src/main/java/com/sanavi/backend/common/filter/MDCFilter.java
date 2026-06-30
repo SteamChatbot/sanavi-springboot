@@ -1,6 +1,13 @@
 package com.sanavi.backend.common.filter;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.UUID;
+
+import org.slf4j.MDC;
+
 import com.sanavi.backend.security.JwtProvider;
+
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
@@ -10,14 +17,8 @@ import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.MDC;
-import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.UUID;
 
-@Component
 @RequiredArgsConstructor
 public class MDCFilter implements Filter {
 
