@@ -1,10 +1,12 @@
 package com.sanavi.backend.admin.statistics.mapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.sanavi.backend.admin.statistics.dto.MatchSummaryDto;
 import com.sanavi.backend.common.dto.TrendPointDto;
 
 // 관리자 통계 전용 매퍼 — member/match/match_bid/member_lawyers 테이블을 읽기 전용으로 집계
@@ -29,6 +31,11 @@ public interface AdminStatisticsMapper {
 
     // 직업 키워드 TOP N 후보 생성용 원본 — member.job은 자유입력이라 단어 분리는 서비스 레이어(Java)에서 처리
     List<String> selectAllJobs();
+
+    // 관리자 다중필터 조합 검색 — 후보 유저들이 의뢰인으로서 작성한 의뢰글 현황(건수·성사건수·낙찰총액)
+    MatchSummaryDto selectMatchSummaryForUsers(
+            @Param("userIds") List<String> userIds,
+            @Param("startDate") LocalDateTime startDate);
 
     // 매칭 — 전체/상태별 의뢰글 수, 입찰 평균가
     int countTotalMatches();
