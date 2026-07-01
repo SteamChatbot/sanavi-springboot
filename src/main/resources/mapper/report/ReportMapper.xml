@@ -9,16 +9,72 @@
         INSERT INTO report (
             reported_user_id,
             report_user_id,
+            target_type,
+            target_id,
             category,
             detail,
-            created_at
+            created_at,
+            status
         ) VALUES (
             #{reportedUserId},
             #{reportUserId},
+            #{targetType},
+            #{targetId},
             #{category},
             #{detail},
-            #{createdAt}
+            NOW(),
+            'PENDING'
         )
     </insert>
+
+    <select id="countDuplicateReport" resultType="int">
+        SELECT COUNT(*)
+        FROM report
+        WHERE report_user_id = #{reportUserId}
+          AND target_type = #{targetType}
+          AND target_id = #{targetId}
+    </select>
+
+    <select id="selectBoardOwner" resultType="string">
+        SELECT user_id
+        FROM board
+        WHERE id = #{targetId}
+          AND deleted = 1
+    </select>
+
+    <select id="selectBoardCommentOwner" resultType="string">
+        SELECT user_id
+        FROM board_comment
+        WHERE id = #{targetId}
+          AND deleted = 1
+    </select>
+
+    <select id="selectMatchOwner" resultType="string">
+        SELECT user_id
+        FROM `match`
+        WHERE id = #{targetId}
+          AND deleted = 1
+    </select>
+
+    <update id="increaseBoardReportCount">
+        UPDATE board
+        SET report_count = report_count + 1
+        WHERE id = #{targetId}
+          AND deleted = 1
+    </update>
+
+    <update id="increaseBoardCommentReportCount">
+        UPDATE board_comment
+        SET report_count = report_count + 1
+        WHERE id = #{targetId}
+          AND deleted = 1
+    </update>
+
+    <update id="increaseMatchReportCount">
+        UPDATE `match`
+        SET report_count = report_count + 1
+        WHERE id = #{targetId}
+          AND deleted = 1
+    </update>
 
 </mapper>
