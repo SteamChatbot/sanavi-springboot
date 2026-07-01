@@ -9,10 +9,12 @@ import com.sanavi.backend.admin.statistics.dto.AdminAnalysisComboFilterRequest;
 import com.sanavi.backend.admin.statistics.dto.AdminAnalysisComboResultDto;
 import com.sanavi.backend.admin.statistics.dto.AnalysisCountResultDto;
 import com.sanavi.backend.admin.statistics.dto.CountForUsersRequestDto;
+import com.sanavi.backend.admin.statistics.dto.MatchSummaryDto;
 import com.sanavi.backend.admin.statistics.mapper.AdminStatisticsMapper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -41,6 +43,10 @@ class AdminStatisticsServiceTest {
                 .body(AnalysisCountResultDto.class))
                 .thenReturn(new AnalysisCountResultDto(7));
 
+        // given: 같은 3명이 main_db에서 작성한 의뢰글 현황 (가짜) — 5건 중 2건 성사, 낙찰총액 300만원
+        when(mapper.selectMatchSummaryForUsers(eq(List.of("user1", "user2", "user3")), any()))
+                .thenReturn(new MatchSummaryDto(5, 2, 3_000_000L));
+
         AdminStatisticsService service = new AdminStatisticsService(mapper, aiApiClient);
         AdminAnalysisComboFilterRequest filter =
                 new AdminAnalysisComboFilterRequest("week", 1, "role_user", null, 100);
@@ -51,6 +57,11 @@ class AdminStatisticsServiceTest {
         // then: 후보 3명(sampleSize) 중 이번 기간에 총 7건(totalAnalysisCount) 분석
         assertThat(result.getSampleSize()).isEqualTo(3);
         assertThat(result.getTotalAnalysisCount()).isEqualTo(7);
+        // then: 의뢰글 5건 중 2건 성사(성사율 40.0%), 낙찰총액 300만원
+        assertThat(result.getMatchCount()).isEqualTo(5);
+        assertThat(result.getMatchClosedCount()).isEqualTo(2);
+        assertThat(result.getMatchSuccessRate()).isEqualTo(40.0);
+        assertThat(result.getTotalBidAmount()).isEqualTo(3_000_000L);
     }
 
     @Test
@@ -67,9 +78,14 @@ class AdminStatisticsServiceTest {
         // when
         AdminAnalysisComboResultDto result = service.searchAnalysisCombo(filter);
 
-        // then: 0/0으로 바로 반환 — 빈 후보 목록으로 ai-api를 부르는 낭비 호출이 없어야 함
+        // then: 0/0으로 바로 반환 — 빈 후보 목록으로 ai-api/main_db 낭비 호출이 없어야 함
         assertThat(result.getSampleSize()).isZero();
         assertThat(result.getTotalAnalysisCount()).isZero();
+        assertThat(result.getMatchCount()).isZero();
+        assertThat(result.getMatchClosedCount()).isZero();
+        assertThat(result.getMatchSuccessRate()).isZero();
+        assertThat(result.getTotalBidAmount()).isZero();
         verify(aiApiClient, never()).post();
+        verify(mapper, never()).selectMatchSummaryForUsers(any(), any());
     }
 }

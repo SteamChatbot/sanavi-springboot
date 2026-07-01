@@ -77,6 +77,24 @@
         SELECT job FROM member WHERE deleted = 1 AND job IS NOT NULL AND job != ''
     </select>
 
+    <!-- 관리자 다중필터 조합 검색 — 후보 유저들이 의뢰인(m.user_id)으로서 작성한 의뢰글 현황.
+         matchCount는 의뢰글 자체 수라 LEFT JOIN으로 입찰이 하나도 없는 의뢰글도 놓치지 않고,
+         closedCount·totalBidAmount는 매칭성사(CLOSED) + 낙찰(SELECTED) 조건을 만족할 때만 집계 -->
+    <select id="selectMatchSummaryForUsers" resultType="com.sanavi.backend.admin.statistics.dto.MatchSummaryDto">
+        SELECT
+            COUNT(DISTINCT m.id) AS matchCount,
+            COUNT(DISTINCT CASE WHEN m.status = 'CLOSED' THEN m.id END) AS closedCount,
+            COALESCE(SUM(CASE WHEN m.status = 'CLOSED' AND mb.status = 'SELECTED' THEN mb.bid_price END), 0) AS totalBidAmount
+        FROM `match` m
+        LEFT JOIN match_bid mb ON mb.match_id = m.id AND mb.deleted = 1
+        WHERE m.deleted = 1
+          AND m.created_at >= #{startDate}
+          AND m.user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
     <!-- 매칭 — 전체 의뢰글 수 / 상태별 건수 / 입찰 평균가 -->
     <select id="countTotalMatches" resultType="int">
         SELECT COUNT(*) FROM `match` WHERE deleted = 1

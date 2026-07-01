@@ -1,6 +1,7 @@
 package com.sanavi.backend.admin.statistics.service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,6 +24,7 @@ import com.sanavi.backend.admin.statistics.dto.AnalysisCountResultDto;
 import com.sanavi.backend.admin.statistics.dto.CountForUsersRequestDto;
 import com.sanavi.backend.admin.statistics.dto.LawyerStatsDto;
 import com.sanavi.backend.admin.statistics.dto.MatchStatsDto;
+import com.sanavi.backend.admin.statistics.dto.MatchSummaryDto;
 import com.sanavi.backend.admin.statistics.dto.MemberStatsDto;
 import com.sanavi.backend.admin.statistics.dto.MemberTrendPointDto;
 import com.sanavi.backend.admin.statistics.mapper.AdminStatisticsMapper;
@@ -130,7 +132,8 @@ public class AdminStatisticsService {
     // ② 그 유저ID 목록만 ai-api로 보내 기간 내 분석횟수 총합을 집계 — 매칭 이전에 ai_db 전체를 끌어오지 않음
 
     // Input:  AdminAnalysisComboFilterRequest — range/subscribe/role/job/limit을 한 객체로 묶은 요청 조건
-    // Output: AdminAnalysisComboResultDto — sampleSize(조건에 맞는 후보 유저 수) + totalAnalysisCount(그 중 기간 내 분석 총건수)
+    // Output: AdminAnalysisComboResultDto — sampleSize/totalAnalysisCount(ai_db)에 더해
+    //         같은 후보 유저들의 의뢰글 현황(matchCount/matchClosedCount/matchSuccessRate/totalBidAmount, main_db)
     @Transactional(readOnly = true)
     public AdminAnalysisComboResultDto searchAnalysisCombo(AdminAnalysisComboFilterRequest filter) {
         // ① 데이터 가져오는 부분 (main_db 필터링) — AdminStatisticsMapper.selectMemberCandidates
@@ -138,15 +141,39 @@ public class AdminStatisticsService {
                 filter.subscribe(), filter.role(), filter.job(), filter.limit());
 
         if (candidateUserIds.isEmpty()) {
-            return new AdminAnalysisComboResultDto(0, 0);
+            return new AdminAnalysisComboResultDto(0, 0, 0, 0, 0, 0L);
         }
 
         // ① 데이터 가져오는 부분 (ai-api 호출) — 아래 fetchAnalysisCountForUsers()
         int totalAnalysisCount = fetchAnalysisCountForUsers(filter.range(), candidateUserIds);
 
+        // ① 데이터 가져오는 부분 (main_db 직접 조회) — 같은 후보 유저들의 의뢰글/매칭성사/낙찰가 (ai-api 무관)
+        LocalDateTime startDate = resolveStartDate(filter.range());
+        MatchSummaryDto matchSummary = adminStatisticsMapper.selectMatchSummaryForUsers(candidateUserIds, startDate);
+        double matchSuccessRate = matchSummary.getMatchCount() > 0
+                ? Math.round((double) matchSummary.getClosedCount() / matchSummary.getMatchCount() * 1000) / 10.0
+                : 0;
+
         // ② main_db가 이미 조건에 맞는 유저만 골라놨기 때문에, 여기서는 별도 join/합산 없이
-        // 후보 수와 ai-api가 돌려준 총건수를 그대로 묶어서 React로 보냄
-        return new AdminAnalysisComboResultDto(candidateUserIds.size(), totalAnalysisCount);
+        // 후보 수 + ai-api 분석건수 + main_db 의뢰글 현황을 그대로 묶어서 React로 보냄
+        return new AdminAnalysisComboResultDto(
+                candidateUserIds.size(),
+                totalAnalysisCount,
+                matchSummary.getMatchCount(),
+                matchSummary.getClosedCount(),
+                matchSuccessRate,
+                matchSummary.getTotalBidAmount());
+    }
+
+    // range("week"/"month"/"halfyear")를 실제 날짜 경계로 변환 — ai-api의 동일 로직과 동일한 값 사용
+    // (서비스마다 각자 계산하는 건 이전 세션에서 이미 정한 패턴: DB 세션 타임존이 아닌 앱 서버 타임존 기준 통일)
+    private LocalDateTime resolveStartDate(String range) {
+        LocalDate today = LocalDate.now();
+        return switch (range) {
+            case "month" -> today.minusMonths(1).atStartOfDay();
+            case "halfyear" -> today.minusMonths(6).atStartOfDay();
+            default -> today.minusDays(6).atStartOfDay();
+        };
     }
 
     // ai-api POST /api/admin/analysis/count-for-users 호출 — 이미 추려진 userIds에 대한 분석 총건수만 요청
