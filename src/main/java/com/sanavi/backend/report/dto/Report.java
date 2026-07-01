@@ -16,4 +16,7 @@ public class Report {
     private String category;
     private String detail;
     private LocalDateTime createdAt;
+    private String status;
+    private String targetType;
+    private String targetId;
 }
