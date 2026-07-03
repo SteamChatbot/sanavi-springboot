@@ -27,8 +27,7 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
 
@@ -36,40 +35,47 @@ public class SecurityConfig {
                         // .requestMatchers(HttpMethod.POST, "/api/members/login").permitAll()
                         // .requestMatchers(HttpMethod.POST, "/api/members/signup").permitAll()
                         // .requestMatchers(HttpMethod.POST, "/api/members/refresh").permitAll()
-                        // .requestMatchers(HttpMethod.GET,  "/api/members/check-id").permitAll()
+                        // .requestMatchers(HttpMethod.GET, "/api/members/check-id").permitAll()
                         // .requestMatchers(HttpMethod.POST, "/api/members/email/**").permitAll()
-                        // .requestMatchers(HttpMethod.GET,  "/api/matches").permitAll()
-                        // .requestMatchers(HttpMethod.GET,  "/api/matches/{matchId}").permitAll()
-                        // .requestMatchers(HttpMethod.GET,  "/api/requestlist/lawyers/**").permitAll()
+                        // .requestMatchers(HttpMethod.GET, "/api/matches").permitAll()
+                        // .requestMatchers(HttpMethod.GET, "/api/matches/{matchId}").permitAll()
+                        // .requestMatchers(HttpMethod.GET, "/api/requestlist/lawyers/**").permitAll()
                         // .requestMatchers("/actuator/**").permitAll()
 
                         // ── 로그인 사용자만 (role 무관) ────────────────────────────────
-                        // .requestMatchers(HttpMethod.POST,   "/api/members/logout").authenticated()
-                        // .requestMatchers(HttpMethod.POST,   "/api/analysis").authenticated()
+                        // .requestMatchers(HttpMethod.POST, "/api/members/logout").authenticated()
+                        // .requestMatchers(HttpMethod.POST, "/api/analysis").authenticated()
                         // .requestMatchers(HttpMethod.DELETE, "/api/analysis/{taskId}").authenticated()
-                        // .requestMatchers(HttpMethod.GET,    "/api/analysis/history").authenticated()
-                        // .requestMatchers(HttpMethod.POST,   "/api/matches").authenticated()
+                        // .requestMatchers(HttpMethod.GET, "/api/analysis/history").authenticated()
+                        // .requestMatchers(HttpMethod.POST, "/api/matches").authenticated()
                         // .requestMatchers(HttpMethod.DELETE, "/api/matches/{matchId}").authenticated()
-                        // .requestMatchers(HttpMethod.PATCH,  "/api/matches/{matchId}/status").authenticated()
-                        // .requestMatchers(HttpMethod.GET,    "/api/members/me").authenticated()
-                        // .requestMatchers(HttpMethod.PATCH,  "/api/members/me").authenticated()
-                        // .requestMatchers(HttpMethod.GET,    "/api/subscribe").authenticated()
+                        // .requestMatchers(HttpMethod.PATCH,
+                        // "/api/matches/{matchId}/status").authenticated()
+                        // .requestMatchers(HttpMethod.GET, "/api/members/me").authenticated()
+                        // .requestMatchers(HttpMethod.PATCH, "/api/members/me").authenticated()
+                        // .requestMatchers(HttpMethod.GET, "/api/subscribe").authenticated()
 
                         // ── role_lawyer 전용 ───────────────────────────────────────────
-                        // .requestMatchers(HttpMethod.POST,  "/api/matches/{matchId}/bids").hasAuthority("role_lawyer")
-                        // .requestMatchers(HttpMethod.GET,   "/api/requestlist/requests/received").hasAuthority("role_lawyer")
-                        // .requestMatchers(HttpMethod.PATCH, "/api/requestlist/requests/{matchId}/accept").hasAuthority("role_lawyer")
-                        // .requestMatchers(HttpMethod.PATCH, "/api/requestlist/requests/{matchId}/reject").hasAuthority("role_lawyer")
+                        // .requestMatchers(HttpMethod.POST,
+                        // "/api/matches/{matchId}/bids").hasAuthority("role_lawyer")
+                        // .requestMatchers(HttpMethod.GET,
+                        // "/api/requestlist/requests/received").hasAuthority("role_lawyer")
+                        // .requestMatchers(HttpMethod.PATCH,
+                        // "/api/requestlist/requests/{matchId}/accept").hasAuthority("role_lawyer")
+                        // .requestMatchers(HttpMethod.PATCH,
+                        // "/api/requestlist/requests/{matchId}/reject").hasAuthority("role_lawyer")
 
                         // ── role_user 전용 ─────────────────────────────────────────────
-                        // .requestMatchers(HttpMethod.POST,  "/api/requestlist/requests").hasAuthority("role_user")
-                        // .requestMatchers(HttpMethod.GET,   "/api/requestlist/requests/sent").hasAuthority("role_user")
-                        // .requestMatchers(HttpMethod.PATCH, "/api/subscribe/activate").hasAuthority("role_user")
+                        // .requestMatchers(HttpMethod.POST,
+                        // "/api/requestlist/requests").hasAuthority("role_user")
+                        // .requestMatchers(HttpMethod.GET,
+                        // "/api/requestlist/requests/sent").hasAuthority("role_user")
+                        // .requestMatchers(HttpMethod.PATCH,
+                        // "/api/subscribe/activate").hasAuthority("role_user")
 
                         // ── role_admin 전용 ────────────────────────────────────────────
                         // .requestMatchers("/api/admin/**").hasAuthority("role_admin")
-                        .anyRequest().permitAll()
-                );
+                        .anyRequest().permitAll());
 
         return http.build();
     }
@@ -77,7 +83,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://127.0.0.1:3000", "http://192.168.0.45:3000"));
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000", "http://127.0.0.1:3000", "http://192.168.0.45:3000", "http://192.168.0.70:3000"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
