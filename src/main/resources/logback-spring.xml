@@ -1,5 +1,8 @@
 <configuration>
 
+    <!-- 인메모리 링버퍼: 관리자 시스템 모니터링 페이지의 실시간 로그 조회용 — 모든 프로필 공통 -->
+    <appender name="MEMORY" class="com.sanavi.backend.common.logging.InMemoryLogAppender"/>
+
     <!-- 개발 환경: 콘솔에 텍스트로 출력 -->
     <springProfile name="default,local,dev">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -15,6 +18,7 @@
 
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="MEMORY"/>
         </root>
     </springProfile>
 
@@ -61,6 +65,7 @@
         <root level="INFO">
             <appender-ref ref="FILE_JSON"/>
             <appender-ref ref="S3"/>
+            <appender-ref ref="MEMORY"/>
         </root>
     </springProfile>
 

@@ -50,6 +50,11 @@ aws:
   region: ${AWS_REGION:ap-northeast-2}
   s3:
     bucket: ${AWS_S3_BUCKET:sanavi-dev-files}
+  athena:
+    # 관리자 시스템 모니터링 — 과거 로그 조회(Athena). DDL은 LogHistoryService 상단 주석 참고, AWS 콘솔에서 1회 직접 실행 필요
+    database: ${AWS_ATHENA_DATABASE:sanavi_logs}
+    table: ${AWS_ATHENA_TABLE:sanavi_backend_logs}
+    output-location: ${AWS_ATHENA_OUTPUT_LOCATION:}
 
 # -----------------------------------------------------------------------
 # 고려사항: JVM GC 튜닝 (Dockerfile 작성 시 참고)

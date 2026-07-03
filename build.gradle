@@ -46,6 +46,7 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'                // JUnit 플랫폼 실행기
 	implementation platform('software.amazon.awssdk:bom:2.25.70')				// aws 플랫폼
 	implementation 'software.amazon.awssdk:s3'									// s3
+	implementation 'software.amazon.awssdk:athena'								// 관리자 로그 조회 — Athena로 S3 로그를 SQL로 쿼리
 }
 
 tasks.withType(JavaCompile).configureEach {
