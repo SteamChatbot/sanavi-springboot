@@ -33,10 +33,18 @@ public class JwtProvider {
     }
 
     public String generateAccessToken(String userId, String role) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("JWT userId is required.");
+        }
+
+        if (role == null || role.isBlank()) {
+            throw new IllegalArgumentException("JWT role is required.");
+        }
+
         return Jwts.builder()
                 .subject(userId)
                 .claim("role", role)
-                .id(UUID.randomUUID().toString()) // jti — 블랙리스트 키로 사용
+                .id(UUID.randomUUID().toString())
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + accessTokenExpiry))
                 .signWith(key)
@@ -44,6 +52,10 @@ public class JwtProvider {
     }
 
     public String generateRefreshToken(String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new IllegalArgumentException("JWT userId is required.");
+        }
+
         return Jwts.builder()
                 .subject(userId)
                 .id(UUID.randomUUID().toString())
