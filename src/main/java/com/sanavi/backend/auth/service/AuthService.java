@@ -1,5 +1,8 @@
 package com.sanavi.backend.auth.service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,8 @@ public class AuthService {
     private final MemberMapper memberMapper;
     private final PasswordEncoder passwordEncoder;
     private final EmailVerificationService emailVerificationService;
+
+    private static final DateTimeFormatter RESTRICTION_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     // 격리수준: REPEATABLE_READ (MariaDB 기본값)
     // 중복 체크(SELECT) → INSERT 사이에 다른 트랜잭션이 같은 userId로 INSERT해도
@@ -141,23 +146,26 @@ public class AuthService {
         }
     }
 
+    @Transactional
     public LoginResponse login(LoginRequest request) {
         Member member = memberMapper.findByUserId(request.getUserId());
 
         if (member == null ||
                 !passwordEncoder.matches(request.getPassword(), member.getPassword())) {
-            // WARN: 로그인 실패는 보안 이벤트 — 반복 실패 패턴 감지용
             log.warn(
                     "action=MEMBER_LOGIN result=FAIL reason=INVALID_CREDENTIALS target_user_id={}",
                     request.getUserId());
+
             throw new LoginFailedException("아이디 또는 비밀번호가 올바르지 않습니다.");
         }
 
-        // 로그인 성공도 감사 목적 기록
+        validateLoginAllowed(member);
+
         log.info(
                 "action=MEMBER_LOGIN target_user_id={} role={} result=SUCCESS",
                 member.getUserId(),
                 member.getRole());
+
         return new LoginResponse(
                 member.getUserId(),
                 member.getName(),
@@ -171,10 +179,62 @@ public class AuthService {
     }
 
     /** refresh 엔드포인트에서 새 AT 발급 시 최신 role 조회용 */
+    @Transactional
     public String findRole(String userId) {
         Member member = memberMapper.findByUserId(userId);
-        if (member == null)
+
+        if (member == null) {
             throw new MemberNotFoundException("존재하지 않는 회원입니다.");
+        }
+
+        validateLoginAllowed(member);
+
         return member.getRole();
+    }
+
+    private void validateLoginAllowed(Member member) {
+        if (member.getDeleted() == null || member.getDeleted() != 1) {
+            log.warn(
+                    "action=MEMBER_LOGIN result=DENIED reason=WITHDRAWN_ACCOUNT target_user_id={}",
+                    member.getUserId());
+
+            throw new LoginFailedException("탈퇴 처리된 계정입니다.");
+        }
+
+        int restrictionDays = member.getLoginRestrictionDays() == null
+                ? 0
+                : member.getLoginRestrictionDays();
+
+        if (restrictionDays <= 0) {
+            return;
+        }
+
+        LocalDateTime restrictedUntil = member.getLoginRestrictedUntil();
+
+        if (restrictedUntil == null) {
+            log.warn(
+                    "action=MEMBER_LOGIN result=DENIED reason=LOGIN_RESTRICTED_WITHOUT_UNTIL target_user_id={}",
+                    member.getUserId());
+
+            throw new LoginFailedException("로그인 제한 상태입니다. 고객센터로 문의해 주세요.");
+        }
+
+        if (restrictedUntil.isAfter(LocalDateTime.now())) {
+            log.warn(
+                    "action=MEMBER_LOGIN result=DENIED reason=LOGIN_RESTRICTED target_user_id={} restricted_until={}",
+                    member.getUserId(),
+                    restrictedUntil);
+
+            throw new LoginFailedException(
+                    "로그인 제한 중입니다. 제한 만료일: "
+                            + restrictedUntil.format(RESTRICTION_TIME_FORMATTER));
+        }
+
+        int released = memberMapper.releaseLoginRestriction(member.getUserId());
+
+        log.info(
+                "action=LOGIN_RESTRICTION_RELEASE target_user_id={} result={} reason=EXPIRED",
+                member.getUserId(),
+                released == 1 ? "SUCCESS" : "NO_CHANGE");
     }
 }

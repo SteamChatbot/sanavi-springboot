@@ -27,4 +27,5 @@ public interface MemberMapper {
 
     void incrementAiCount(String userId);
 
+    int releaseLoginRestriction(String userId);
 }
