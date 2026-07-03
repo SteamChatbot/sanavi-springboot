@@ -37,6 +37,5 @@ public interface MemberMapper {
 
     List<String> findDistinctJobs();
 
-    // 로그인 제한(5회 실패 등) 만료 시 관련 컬럼 초기화 — XML 쿼리는 이미 있었는데 인터페이스 선언이 누락돼있었음
-    int releaseLoginRestriction(String userId);
+    int releaseLoginRestriction(@Param("userId") String userId);
 }

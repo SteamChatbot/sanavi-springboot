@@ -13,7 +13,6 @@ import com.sanavi.backend.admin.member.dto.AdminMemberSubscriptionRequestDto;
 import com.sanavi.backend.admin.member.mapper.AdminMemberMapper;
 import com.sanavi.backend.member.dto.Member;
 import com.sanavi.backend.member.mapper.MemberMapper;
-import com.sanavi.backend.security.TokenService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +26,6 @@ public class AdminMemberService {
 
     private final AdminMemberMapper adminMemberMapper;
     private final MemberMapper memberMapper;
-    private final TokenService tokenService;
 
     @Transactional
     public AdminMemberPageResponseDto getMembers(AdminMemberListRequestDto request) {
@@ -141,27 +139,6 @@ public class AdminMemberService {
                 targetUserId,
                 admin.getUserId(),
                 target.getAiCount());
-    }
-
-    @Transactional
-    public void forceLogout(String targetUserId, String adminUserId) {
-        Member admin = requireAdmin(adminUserId);
-        AdminMemberResponseDto target = requireTargetMember(targetUserId);
-
-        tokenService.deleteRefreshToken(targetUserId);
-
-        insertHistory(
-                targetUserId,
-                admin.getUserId(),
-                "FORCE_LOGOUT",
-                "관리자 강제 로그아웃",
-                "refreshToken=ACTIVE_OR_UNKNOWN",
-                "refreshToken=DELETED");
-
-        log.info(
-                "action=ADMIN_MEMBER_FORCE_LOGOUT target_user_id={} admin_user_id={} result=SUCCESS",
-                target.getUserId(),
-                admin.getUserId());
     }
 
     private Member requireAdmin(String adminUserId) {
