@@ -11,6 +11,8 @@ import com.sanavi.backend.auth.service.AuthService;
 import com.sanavi.backend.auth.service.EmailVerificationService;
 import com.sanavi.backend.security.TokenService;
 import com.sanavi.backend.security.JwtProvider;
+import com.sanavi.backend.common.exception.LoginFailedException;
+import com.sanavi.backend.common.exception.MemberNotFoundException;
 import com.sanavi.backend.common.response.ApiResponse;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
@@ -91,7 +93,20 @@ public class AuthController {
                     .body(ApiResponse.failure("리프레시 토큰이 만료되었습니다. 다시 로그인해 주세요."));
         }
 
-        String role = authService.findRole(userId);
+        String role;
+
+        try {
+            role = authService.findRole(userId);
+        } catch (LoginFailedException | MemberNotFoundException e) {
+            tokenService.deleteRefreshToken(userId);
+
+            log.warn(
+                    "action=TOKEN_REFRESH target_user_id={} result=FAIL reason=ACCOUNT_NOT_ALLOWED",
+                    userId);
+
+            return unauthorizedAndClear(e.getMessage());
+        }
+
         String newAccessToken = jwtProvider.generateAccessToken(userId, role);
 
         log.info(
@@ -184,5 +199,12 @@ public class AuthController {
                 .filter(c -> name.equals(c.getName()))
                 .map(Cookie::getValue)
                 .findFirst().orElse(null);
+    }
+
+    private ResponseEntity<ApiResponse<Void>> unauthorizedAndClear(String message) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .header("Set-Cookie", clearCookie("access_token", "/").toString())
+                .header("Set-Cookie", clearCookie("refresh_token", "/api/members/refresh").toString())
+                .body(ApiResponse.failure(message));
     }
 }

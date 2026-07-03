@@ -47,7 +47,14 @@
             created_at,
             deleted,
             ai_count,
-            role
+            role,
+            deleted,
+            withdrawn_at,
+            login_restriction_days,
+            login_restricted_at,
+            login_restricted_until,
+            login_restriction_reason,
+            login_restricted_by
         FROM member
         WHERE user_id = #{userId}
           AND deleted = 1
@@ -208,4 +215,15 @@
         ORDER BY job
     </select>
 
+    <update id="releaseLoginRestriction">
+        UPDATE member
+        SET
+            login_restriction_days = 0,
+            login_restricted_at = NULL,
+            login_restricted_until = NULL,
+            login_restriction_reason = NULL,
+            login_restricted_by = NULL
+        WHERE user_id = #{userId}
+    </update>
+    
 </mapper>
