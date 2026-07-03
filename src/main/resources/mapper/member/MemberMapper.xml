@@ -126,5 +126,86 @@
             #{specialty}
         )
     </insert>
-    
+
+    <!-- 관리자 대량 메일 — userIds가 있으면 다른 조건 다 무시하고 그 목록만 대상 -->
+    <sql id="mailTargetWhere">
+        <where>
+            deleted = 1
+            <choose>
+                <when test="userIds != null and !userIds.isEmpty()">
+                    AND user_id IN
+                    <foreach collection="userIds" item="id" open="(" separator="," close=")">
+                        #{id}
+                    </foreach>
+                </when>
+                <otherwise>
+                    <if test="subscribe != null">
+                        AND subscribe = #{subscribe}
+                    </if>
+                    <if test="role != null and role != ''">
+                        AND role = #{role}
+                    </if>
+                    <if test="jobs != null and !jobs.isEmpty()">
+                        AND job IN
+                        <foreach collection="jobs" item="j" open="(" separator="," close=")">
+                            #{j}
+                        </foreach>
+                    </if>
+                    <if test="createdFrom != null">
+                        AND created_at &gt;= #{createdFrom}
+                    </if>
+                    <if test="createdTo != null">
+                        AND created_at &lt; DATE_ADD(#{createdTo}, INTERVAL 1 DAY)
+                    </if>
+                    <if test="excludeBlacklist">
+                        AND (black_list IS NULL OR black_list != 1)
+                    </if>
+                    <if test="excludeLawyer">
+                        AND role != 'role_lawyer'
+                    </if>
+                    <if test="excludeAlreadyPro">
+                        AND subscribe != 1
+                    </if>
+                </otherwise>
+            </choose>
+        </where>
+    </sql>
+
+    <select id="countMailTargets"
+            parameterType="com.sanavi.backend.admin.mail.dto.MailAudienceFilter"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM member
+        <include refid="mailTargetWhere"/>
+    </select>
+
+    <select id="searchMailTargets"
+            parameterType="com.sanavi.backend.admin.mail.dto.MailAudienceFilter"
+            resultType="com.sanavi.backend.member.dto.Member">
+        SELECT
+            user_id,
+            name,
+            phone,
+            email,
+            birth,
+            job,
+            gender,
+            subscribe,
+            created_at,
+            deleted,
+            ai_count,
+            role
+        FROM member
+        <include refid="mailTargetWhere"/>
+    </select>
+
+    <select id="findDistinctJobs" resultType="string">
+        SELECT DISTINCT job
+        FROM member
+        WHERE deleted = 1
+          AND job IS NOT NULL
+          AND job != ''
+        ORDER BY job
+    </select>
+
 </mapper>
