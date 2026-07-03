@@ -57,13 +57,4 @@ public class AdminMemberController {
                 ApiResponse.success("AI 사용 횟수가 초기화되었습니다.", null));
     }
 
-    @PatchMapping("/{userId}/force-logout")
-    public ResponseEntity<ApiResponse<Void>> forceLogout(
-            @PathVariable String userId,
-            @AuthenticationPrincipal String adminUserId) {
-        adminMemberService.forceLogout(userId, adminUserId);
-
-        return ResponseEntity.ok(
-                ApiResponse.success("강제 로그아웃 처리되었습니다.", null));
-    }
 }

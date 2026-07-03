@@ -36,4 +36,6 @@ public interface MemberMapper {
     List<Member> searchMailTargets(MailAudienceFilter filter);
 
     List<String> findDistinctJobs();
+
+    int releaseLoginRestriction(@Param("userId") String userId);
 }
