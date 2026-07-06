@@ -31,8 +31,26 @@ import com.sanavi.backend.admin.system.dto.LogExportDto;
 import com.sanavi.backend.common.service.S3Service;
 
 
+// 책임: S3에 저장된 과거 로그(NDJSON, S3LogAppender가 적재)를 Athena로 SQL 조회
+// 아래 Glue 테이블은 AWS 콘솔에서 이미 생성 완료(2026-07-03) — 새 환경(다른 AWS 계정 등)에 옮길 때 참고용 DDL:
+//   CREATE DATABASE IF NOT EXISTS sanavi_logs;
+//   CREATE EXTERNAL TABLE IF NOT EXISTS sanavi_logs.sanavi_backend_logs (
+//     `timestamp` string, traceId string, clientIp string,
+//     level string, logger string, message string,
+//     userId string, handler string
+//   )
+//   PARTITIONED BY (year string, month string, day string)
+//   ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'  -- Athena 기본 내장
+//   LOCATION 's3://sanavi-dev-files/log/sanavi-backend/'
+//   TBLPROPERTIES (
+//     'projection.enabled'='true',
+//     'projection.year.type'='integer', 'projection.year.range'='2026,2035',
+//     'projection.month.type'='integer', 'projection.month.range'='1,12', 'projection.month.digits'='2',
+//     'projection.day.type'='integer', 'projection.day.range'='1,31', 'projection.day.digits'='2',
+//     'storage.location.template'='s3://sanavi-dev-files/log/sanavi-backend/year=${year}/month=${month}/day=${day}/'
+//   );
 // 파티션 프로젝션을 쓰므로 Glue 크롤러/MSCK REPAIR TABLE 불필요 — 경로 규칙이 이미 예측 가능한 패턴이라 바로 조회 가능.
-// Athena workgroup의 쿼리 결과 출력 위치(S3)도 콘솔에서 1회 설정 필요.
+// Athena workgroup의 쿼리 결과 출력 위치는 s3://sanavi-dev-files/athena-results/ 로 설정 완료(SSE-S3 암호화 적용).
 @Service
 @RequiredArgsConstructor
 public class LogHistoryService {
