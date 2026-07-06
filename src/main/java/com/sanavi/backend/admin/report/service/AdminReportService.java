@@ -15,8 +15,9 @@ import com.sanavi.backend.admin.report.dto.AdminReportProcessRequestDto;
 import com.sanavi.backend.admin.report.dto.AdminReportResponseDto;
 import com.sanavi.backend.admin.report.dto.MemberAdminActionHistory;
 import com.sanavi.backend.admin.report.mapper.AdminReportMapper;
+import com.sanavi.backend.admin.role.service.AdminPermissionGuard;
+import com.sanavi.backend.admin.role.service.AdminRolePolicy;
 import com.sanavi.backend.member.dto.Member;
-import com.sanavi.backend.member.mapper.MemberMapper;
 import com.sanavi.backend.security.TokenService;
 
 import lombok.RequiredArgsConstructor;
@@ -31,21 +32,24 @@ public class AdminReportService {
 
     private static final Set<Integer> ALLOWED_RESTRICTION_DAYS = Set.of(3, 7, 30);
 
-    private static final DateTimeFormatter TIME_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final AdminReportMapper adminReportMapper;
-    private final MemberMapper memberMapper;
     private final TokenService tokenService;
+    private final AdminPermissionGuard adminPermissionGuard;
 
     @Transactional(readOnly = true)
-    public AdminReportPageResponseDto getReports(AdminReportListRequestDto request) {
+    public AdminReportPageResponseDto getReports(AdminReportListRequestDto request, String adminUserId) {
         String status = normalizeFilter(request.getStatus());
         String targetType = normalizeFilter(request.getTargetType());
         String keyword = normalizeKeyword(request.getKeyword());
 
         int page = Math.max(request.getPage(), 1);
         int size = Math.max(request.getSafeSize(), 1);
+
+        adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.REPORT_READ);
 
         int totalCount = adminReportMapper.countReports(
                 status,
@@ -71,7 +75,9 @@ public class AdminReportService {
             Integer reportId,
             String adminUserId,
             AdminReportProcessRequestDto request) {
-        Member admin = requireAdmin(adminUserId);
+        Member admin = adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.REPORT_PROCESS);
         validateReason(request);
         validateRestrictionDays(request.getDays());
 
@@ -125,7 +131,9 @@ public class AdminReportService {
             Integer reportId,
             String adminUserId,
             AdminReportProcessRequestDto request) {
-        Member admin = requireAdmin(adminUserId);
+        Member admin = adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.REPORT_PROCESS);
         validateReason(request);
 
         AdminReportResponseDto report = getPendingReport(reportId);
@@ -168,7 +176,9 @@ public class AdminReportService {
             Integer reportId,
             String adminUserId,
             AdminReportProcessRequestDto request) {
-        Member admin = requireAdmin(adminUserId);
+        Member admin = adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.REPORT_PROCESS);
         validateReason(request);
 
         AdminReportResponseDto report = getPendingReport(reportId);
@@ -196,24 +206,6 @@ public class AdminReportService {
                 reportId,
                 report.getReportedUserId(),
                 admin.getUserId());
-    }
-
-    private Member requireAdmin(String adminUserId) {
-        if (adminUserId == null || adminUserId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "관리자 로그인이 필요합니다.");
-        }
-
-        Member admin = memberMapper.findByUserId(adminUserId);
-
-        if (admin == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "관리자 정보를 확인할 수 없습니다.");
-        }
-
-        if (!"role_admin".equals(admin.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다.");
-        }
-
-        return admin;
     }
 
     private AdminReportResponseDto getPendingReport(Integer reportId) {

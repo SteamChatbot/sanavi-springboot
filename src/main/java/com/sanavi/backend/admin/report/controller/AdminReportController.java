@@ -25,47 +25,48 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminReportController {
 
-    private final AdminReportService adminReportService;
+        private final AdminReportService adminReportService;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<AdminReportPageResponseDto>> getReports(
-            @ModelAttribute AdminReportListRequestDto request) {
-        AdminReportPageResponseDto response = adminReportService.getReports(request);
+        @GetMapping
+        public ResponseEntity<ApiResponse<AdminReportPageResponseDto>> getReports(
+                        @ModelAttribute AdminReportListRequestDto request,
+                        @AuthenticationPrincipal String adminUserId) {
+                AdminReportPageResponseDto response = adminReportService.getReports(request, adminUserId);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("신고 목록을 조회했습니다.", response));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("신고 목록을 조회했습니다.", response));
+        }
 
-    @PatchMapping("/{reportId}/login-restrict")
-    public ResponseEntity<ApiResponse<Void>> restrictLogin(
-            @PathVariable Integer reportId,
-            @RequestBody AdminReportProcessRequestDto request,
-            @AuthenticationPrincipal String adminUserId) {
-        adminReportService.restrictLogin(reportId, adminUserId, request);
+        @PatchMapping("/{reportId}/login-restrict")
+        public ResponseEntity<ApiResponse<Void>> restrictLogin(
+                        @PathVariable Integer reportId,
+                        @RequestBody AdminReportProcessRequestDto request,
+                        @AuthenticationPrincipal String adminUserId) {
+                adminReportService.restrictLogin(reportId, adminUserId, request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("로그인 제한 처리가 완료되었습니다.", null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("로그인 제한 처리가 완료되었습니다.", null));
+        }
 
-    @PatchMapping("/{reportId}/withdraw")
-    public ResponseEntity<ApiResponse<Void>> withdraw(
-            @PathVariable Integer reportId,
-            @RequestBody AdminReportProcessRequestDto request,
-            @AuthenticationPrincipal String adminUserId) {
-        adminReportService.withdraw(reportId, adminUserId, request);
+        @PatchMapping("/{reportId}/withdraw")
+        public ResponseEntity<ApiResponse<Void>> withdraw(
+                        @PathVariable Integer reportId,
+                        @RequestBody AdminReportProcessRequestDto request,
+                        @AuthenticationPrincipal String adminUserId) {
+                adminReportService.withdraw(reportId, adminUserId, request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("강제탈퇴 처리가 완료되었습니다.", null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("강제탈퇴 처리가 완료되었습니다.", null));
+        }
 
-    @PatchMapping("/{reportId}/dismiss")
-    public ResponseEntity<ApiResponse<Void>> dismiss(
-            @PathVariable Integer reportId,
-            @RequestBody AdminReportProcessRequestDto request,
-            @AuthenticationPrincipal String adminUserId) {
-        adminReportService.dismiss(reportId, adminUserId, request);
+        @PatchMapping("/{reportId}/dismiss")
+        public ResponseEntity<ApiResponse<Void>> dismiss(
+                        @PathVariable Integer reportId,
+                        @RequestBody AdminReportProcessRequestDto request,
+                        @AuthenticationPrincipal String adminUserId) {
+                adminReportService.dismiss(reportId, adminUserId, request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("신고가 반려 처리되었습니다.", null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("신고가 반려 처리되었습니다.", null));
+        }
 }

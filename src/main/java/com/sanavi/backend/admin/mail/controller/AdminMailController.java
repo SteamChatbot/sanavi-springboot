@@ -3,6 +3,7 @@ package com.sanavi.backend.admin.mail.controller;
 import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -14,6 +15,8 @@ import com.sanavi.backend.admin.mail.dto.MailAudienceFilter;
 import com.sanavi.backend.admin.mail.dto.MailSendRequestDto;
 import com.sanavi.backend.admin.mail.dto.MailSendResultDto;
 import com.sanavi.backend.admin.mail.service.AdminMailService;
+import com.sanavi.backend.admin.role.service.AdminPermissionGuard;
+import com.sanavi.backend.admin.role.service.AdminRolePolicy;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class AdminMailController {
 
     private final AdminMailService adminMailService;
+    private final AdminPermissionGuard adminPermissionGuard;
 
     @GetMapping("/jobs")
     public List<String> getJobOptions() {
@@ -50,7 +54,11 @@ public class AdminMailController {
     }
 
     @PostMapping("/send")
-    public MailSendResultDto sendBulkMail(@RequestBody MailSendRequestDto request) {
+    public MailSendResultDto sendBulkMail(@RequestBody MailSendRequestDto request,
+            @AuthenticationPrincipal String adminUserId) {
+        adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.MAIL_SEND);
         int targetCount = adminMailService.getAudienceCount(request.filter());
         adminMailService.sendBulkMail(request.filter(), request.subject(), request.htmlBody());
         return new MailSendResultDto(targetCount);
