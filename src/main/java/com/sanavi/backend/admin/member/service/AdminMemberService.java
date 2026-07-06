@@ -11,8 +11,9 @@ import com.sanavi.backend.admin.member.dto.AdminMemberPageResponseDto;
 import com.sanavi.backend.admin.member.dto.AdminMemberResponseDto;
 import com.sanavi.backend.admin.member.dto.AdminMemberSubscriptionRequestDto;
 import com.sanavi.backend.admin.member.mapper.AdminMemberMapper;
+import com.sanavi.backend.admin.role.service.AdminPermissionGuard;
+import com.sanavi.backend.admin.role.service.AdminRolePolicy;
 import com.sanavi.backend.member.dto.Member;
-import com.sanavi.backend.member.mapper.MemberMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,13 +26,16 @@ import lombok.extern.slf4j.Slf4j;
 public class AdminMemberService {
 
     private final AdminMemberMapper adminMemberMapper;
-    private final MemberMapper memberMapper;
+    private final AdminPermissionGuard adminPermissionGuard;
 
     @Transactional
-    public AdminMemberPageResponseDto getMembers(AdminMemberListRequestDto request) {
+    public AdminMemberPageResponseDto getMembers(AdminMemberListRequestDto request, String adminUserId) {
         // 만료된 로그인 제한은 목록 조회 시점에 정리해 현재 상태가 정확히 보이도록 한다
         int releasedCount = adminMemberMapper.releaseExpiredLoginRestrictions();
 
+        adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.MEMBER_READ);
         if (releasedCount > 0) {
             log.info(
                     "action=ADMIN_MEMBER_EXPIRED_RESTRICTION_RELEASE count={} result=SUCCESS",
@@ -72,7 +76,9 @@ public class AdminMemberService {
             String targetUserId,
             String adminUserId,
             AdminMemberSubscriptionRequestDto request) {
-        Member admin = requireAdmin(adminUserId);
+        Member admin = adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.SUBSCRIPTION_MANAGE);
         AdminMemberResponseDto target = requireTargetMember(targetUserId);
 
         if (request == null || request.getSubscribe() == null) {
@@ -113,7 +119,9 @@ public class AdminMemberService {
 
     @Transactional
     public void resetAiCount(String targetUserId, String adminUserId) {
-        Member admin = requireAdmin(adminUserId);
+        Member admin = adminPermissionGuard.requirePermission(
+                adminUserId,
+                AdminRolePolicy.MEMBER_STATUS_MANAGE);
         AdminMemberResponseDto target = requireTargetMember(targetUserId);
 
         if (target.getDeleted() == null || target.getDeleted() != 1) {
@@ -139,24 +147,6 @@ public class AdminMemberService {
                 targetUserId,
                 admin.getUserId(),
                 target.getAiCount());
-    }
-
-    private Member requireAdmin(String adminUserId) {
-        if (adminUserId == null || adminUserId.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "관리자 로그인이 필요합니다.");
-        }
-
-        Member admin = memberMapper.findByUserId(adminUserId);
-
-        if (admin == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "관리자 정보를 확인할 수 없습니다.");
-        }
-
-        if (!"role_admin".equals(admin.getRole())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "관리자 권한이 필요합니다.");
-        }
-
-        return admin;
     }
 
     private AdminMemberResponseDto requireTargetMember(String targetUserId) {

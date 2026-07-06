@@ -25,36 +25,37 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class AdminMemberController {
 
-    private final AdminMemberService adminMemberService;
+        private final AdminMemberService adminMemberService;
 
-    @GetMapping
-    public ResponseEntity<ApiResponse<AdminMemberPageResponseDto>> getMembers(
-            @ModelAttribute AdminMemberListRequestDto request) {
-        AdminMemberPageResponseDto response = adminMemberService.getMembers(request);
+        @GetMapping
+        public ResponseEntity<ApiResponse<AdminMemberPageResponseDto>> getMembers(
+                        @ModelAttribute AdminMemberListRequestDto request,
+                        @AuthenticationPrincipal String adminUserId) {
+                AdminMemberPageResponseDto response = adminMemberService.getMembers(request, adminUserId);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("회원 목록을 조회했습니다.", response));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("회원 목록을 조회했습니다.", response));
+        }
 
-    @PatchMapping("/{userId}/subscription")
-    public ResponseEntity<ApiResponse<Void>> changeSubscription(
-            @PathVariable String userId,
-            @RequestBody AdminMemberSubscriptionRequestDto request,
-            @AuthenticationPrincipal String adminUserId) {
-        adminMemberService.changeSubscription(userId, adminUserId, request);
+        @PatchMapping("/{userId}/subscription")
+        public ResponseEntity<ApiResponse<Void>> changeSubscription(
+                        @PathVariable String userId,
+                        @RequestBody AdminMemberSubscriptionRequestDto request,
+                        @AuthenticationPrincipal String adminUserId) {
+                adminMemberService.changeSubscription(userId, adminUserId, request);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("구독 상태가 변경되었습니다.", null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("구독 상태가 변경되었습니다.", null));
+        }
 
-    @PatchMapping("/{userId}/ai-count/reset")
-    public ResponseEntity<ApiResponse<Void>> resetAiCount(
-            @PathVariable String userId,
-            @AuthenticationPrincipal String adminUserId) {
-        adminMemberService.resetAiCount(userId, adminUserId);
+        @PatchMapping("/{userId}/ai-count/reset")
+        public ResponseEntity<ApiResponse<Void>> resetAiCount(
+                        @PathVariable String userId,
+                        @AuthenticationPrincipal String adminUserId) {
+                adminMemberService.resetAiCount(userId, adminUserId);
 
-        return ResponseEntity.ok(
-                ApiResponse.success("AI 사용 횟수가 초기화되었습니다.", null));
-    }
+                return ResponseEntity.ok(
+                                ApiResponse.success("AI 사용 횟수가 초기화되었습니다.", null));
+        }
 
 }
