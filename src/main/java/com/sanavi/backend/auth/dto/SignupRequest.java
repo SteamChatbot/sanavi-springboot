@@ -18,4 +18,13 @@ public class SignupRequest {
     private LocalDate birth;
     private String job;
     private String gender;
+
+    private String role;
+
+    private String firmName;
+    private String sido;
+    private String sigungu;
+    private String regionDetail;
+    private Integer experienceYears;
+    private String specialty;
 }

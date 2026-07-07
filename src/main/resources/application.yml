@@ -36,19 +36,25 @@ mybatis:
 
 jwt:
   secret: ${JWT_SECRET}
-  access-token-expiry: 1800000
-  refresh-token-expiry: 604800000
+  access-token-expiry: 3000000    # 50분
+  refresh-token-expiry: 604800000 # 7일
 
 ai-api:
   url: ${AI_API_URL:http://localhost:8081}
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:3000}
+  secure-cookie: false  # 로컬 HTTP용 — EC2 배포 시 환경변수 APP_SECURE_COOKIE=true로 덮어씀
 
 aws:
   region: ${AWS_REGION:ap-northeast-2}
   s3:
     bucket: ${AWS_S3_BUCKET:sanavi-dev-files}
+  athena:
+    # 관리자 시스템 모니터링 — 과거 로그 조회(Athena). DDL은 LogHistoryService 상단 주석 참고, AWS 콘솔에서 1회 직접 실행 필요
+    database: ${AWS_ATHENA_DATABASE:sanavi_logs}
+    table: ${AWS_ATHENA_TABLE:sanavi_backend_logs}
+    output-location: ${AWS_ATHENA_OUTPUT_LOCATION:}
 
 # -----------------------------------------------------------------------
 # 고려사항: JVM GC 튜닝 (Dockerfile 작성 시 참고)

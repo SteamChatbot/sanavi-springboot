@@ -11,12 +11,14 @@ import org.springframework.web.multipart.MultipartFile;
 import com.sanavi.backend.requestlist.dto.DirectRequestFileDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RequestListFileService {
@@ -28,6 +30,10 @@ public class RequestListFileService {
 
     public DirectRequestFileDto uploadRequestFile(int matchId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
+            log.warn(
+                    "action=DIRECT_REQUEST_FILE_UPLOAD target_type=match target_id={} result=DENIED reason=EMPTY_FILE",
+                    matchId);
+
             throw new IllegalArgumentException("빈 파일은 업로드할 수 없습니다.");
         }
 
@@ -63,8 +69,23 @@ public class RequestListFileService {
             dto.setFileSize(file.getSize());
             dto.setFileType(fileType);
 
+            log.debug(
+                    "action=DIRECT_REQUEST_FILE_UPLOAD target_type=match target_id={} object_key={} file_size={} file_type={} result=SUCCESS",
+                    matchId,
+                    key,
+                    file.getSize(),
+                    fileType);
+
             return dto;
         } catch (IOException e) {
+            log.error(
+                    "action=DIRECT_REQUEST_FILE_UPLOAD target_type=match target_id={} object_key={} file_size={} file_type={} result=FAIL exception={}",
+                    matchId,
+                    key,
+                    file.getSize(),
+                    fileType,
+                    e.getClass().getSimpleName());
+
             throw new RuntimeException("의뢰 첨부파일 업로드에 실패했습니다.", e);
         }
     }
@@ -86,11 +107,27 @@ public class RequestListFileService {
     }
 
     public byte[] download(String key) {
-        ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(builder -> builder
-                .bucket(bucket)
-                .key(key)
-                .build());
+        try {
+            ResponseBytes<GetObjectResponse> objectBytes = s3Client.getObjectAsBytes(builder -> builder
+                    .bucket(bucket)
+                    .key(key)
+                    .build());
 
-        return objectBytes.asByteArray();
+            byte[] data = objectBytes.asByteArray();
+
+            log.debug(
+                    "action=DIRECT_REQUEST_FILE_DOWNLOAD object_key={} file_size={} result=SUCCESS",
+                    key,
+                    data.length);
+
+            return data;
+        } catch (RuntimeException e) {
+            log.error(
+                    "action=DIRECT_REQUEST_FILE_DOWNLOAD object_key={} result=FAIL exception={}",
+                    key,
+                    e.getClass().getSimpleName());
+
+            throw e;
+        }
     }
 }

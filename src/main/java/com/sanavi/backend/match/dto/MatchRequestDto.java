@@ -12,5 +12,6 @@ public class MatchRequestDto {
     private String title;
     private String content;
     private int price;
-    private String matchType; // AUCTION / DIRECT
+    private String matchType;       // AUCTION / DIRECT
+    private String preferredRegion; // 희망 상담 지역 (선택)
 }

@@ -8,24 +8,21 @@ import org.apache.ibatis.annotations.Param;
 import com.sanavi.backend.match.dto.MatchListResponseDto;
 import com.sanavi.backend.match.dto.MatchRequestDto;
 import com.sanavi.backend.match.dto.MatchResponseDto;
+import com.sanavi.backend.match.dto.MatchSearchDto;
 
 // 책임: match_request 테이블 CRUD MyBatis 매퍼
 //       MatchMapper.xml (mapper/match/) 와 바인딩
 @Mapper
 public interface MatchMapper {
 
-    // Input:  offset (페이지 시작 행), size (페이지 크기), userId (null = 전체 / 값 = 해당 유저 필터)
+    // Input:  MatchSearchDto — 페이지네이션(offset·size)·userId·필터(status·preferredRegion·minPrice) 묶음
     // Output: List<MatchListResponseDto> — 목록용 경량 DTO (content·phone 제외)
-    // 책임:   페이지네이션 적용 의뢰글 목록 조회
-    List<MatchListResponseDto> selectMatchList(
-            @Param("offset") int offset,
-            @Param("size") int size,
-            @Param("userId") String userId);
+    // 책임:   페이지네이션 + 필터 적용 의뢰글 목록 조회
+    List<MatchListResponseDto> selectMatchList(MatchSearchDto search);
 
-    // Input:  userId (null = 전체 카운트 / 값 = 해당 유저 카운트)
-    // Output: int — 전체 의뢰글 수 (페이지네이션 totalCount 계산용)
-    // 책임:   selectMatchList와 동일 조건의 카운트 쿼리
-    int selectMatchCount(@Param("userId") String userId);
+    // Input:  MatchSearchDto — selectMatchList 와 동일 조건 (offset·size 무시)
+    // Output: int — 필터 조건 기준 총 의뢰글 수 (페이지네이션 totalCount 계산용)
+    int selectMatchCount(MatchSearchDto search);
 
     // Input:  matchId (의뢰글 PK)
     // Output: MatchResponseDto — member JOIN으로 requesterName·phone 포함 (null 가능)

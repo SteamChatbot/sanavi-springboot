@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.admin.matchboard.mapper.AdminMatchBoardMapper">
+
+    <sql id="postWhere">
+        WHERE 1 = 1
+
+        <choose>
+            <when test="deletedStatus == 'ACTIVE'">
+                AND m.deleted = 1
+            </when>
+            <when test="deletedStatus == 'DELETED'">
+                AND m.deleted = 0
+            </when>
+            <when test="deletedStatus == 'ALL'">
+            </when>
+            <otherwise>
+                AND m.deleted = 1
+            </otherwise>
+        </choose>
+
+        <if test="status != null and status != ''">
+            <choose>
+                <when test="status == 'CANCELLED'">
+                    AND m.status IN ('CANCELLED', 'CANCELED')
+                </when>
+                <otherwise>
+                    AND m.status = #{status}
+                </otherwise>
+            </choose>
+        </if>
+
+        <if test="reportedOnly != null and reportedOnly">
+            AND COALESCE(m.report_count, 0) &gt; 0
+        </if>
+
+        <if test="keyword != null and keyword != ''">
+            AND (
+                m.title LIKE CONCAT('%', #{keyword}, '%')
+                OR m.content LIKE CONCAT('%', #{keyword}, '%')
+                OR m.user_id LIKE CONCAT('%', #{keyword}, '%')
+                OR requester.name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <sql id="bidWhere">
+        WHERE 1 = 1
+          AND m.deleted = 1
+
+        <choose>
+            <when test="deletedStatus == 'ACTIVE'">
+                AND mb.deleted = 1
+            </when>
+            <when test="deletedStatus == 'DELETED'">
+                AND mb.deleted = 0
+            </when>
+            <when test="deletedStatus == 'ALL'">
+            </when>
+            <otherwise>
+                AND mb.deleted = 1
+            </otherwise>
+        </choose>
+
+        <if test="status != null and status != ''">
+            <choose>
+                <when test="status == 'CANCELLED'">
+                    AND mb.status IN ('CANCELLED', 'CANCELED')
+                </when>
+                <otherwise>
+                    AND mb.status = #{status}
+                </otherwise>
+            </choose>
+        </if>
+
+        <if test="reportedOnly != null and reportedOnly">
+            AND EXISTS (
+                SELECT 1
+                FROM report r
+                WHERE r.target_type IN ('MATCH_BID', 'MATCH_COMMENT')
+                  AND r.target_id = CAST(mb.id AS CHAR)
+                  AND r.status = 'PENDING'
+            )
+        </if>
+
+        <if test="keyword != null and keyword != ''">
+            AND (
+                m.title LIKE CONCAT('%', #{keyword}, '%')
+                OR mb.message LIKE CONCAT('%', #{keyword}, '%')
+                OR mb.lawyer_id LIKE CONCAT('%', #{keyword}, '%')
+                OR lawyer.name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <select id="countPosts"
+            parameterType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardListRequestDto"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM `match` m
+        JOIN member requester
+          ON m.user_id = requester.user_id
+        <include refid="postWhere" />
+    </select>
+
+    <select id="selectPosts"
+            parameterType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardListRequestDto"
+            resultType="com.sanavi.backend.admin.matchboard.dto.AdminMatchPostResponseDto">
+        SELECT
+            m.id AS matchId,
+            m.user_id AS authorId,
+            requester.name AS authorName,
+            m.title AS title,
+            m.content AS content,
+            CASE
+                WHEN m.status = 'CANCELED' THEN 'CANCELLED'
+                ELSE m.status
+            END AS status,
+            m.match_type AS matchType,
+            (
+                SELECT COUNT(*)
+                FROM match_bid mb
+                WHERE mb.match_id = m.id
+                  AND mb.deleted = 1
+            ) AS bidCount,
+            COALESCE(m.report_count, 0) AS reportCount,
+            m.deleted AS deleted,
+            m.created_at AS createdAt
+        FROM `match` m
+        JOIN member requester
+          ON m.user_id = requester.user_id
+        <include refid="postWhere" />
+        ORDER BY
+            COALESCE(m.report_count, 0) DESC,
+            m.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countBids"
+            parameterType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardListRequestDto"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM match_bid mb
+        JOIN `match` m
+          ON mb.match_id = m.id
+        JOIN member lawyer
+          ON mb.lawyer_id = lawyer.user_id
+        <include refid="bidWhere" />
+    </select>
+
+    <select id="selectBids"
+            parameterType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardListRequestDto"
+            resultType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBidResponseDto">
+        SELECT
+            mb.id AS bidId,
+            mb.match_id AS matchId,
+            m.title AS matchTitle,
+            mb.lawyer_id AS authorId,
+            lawyer.name AS authorName,
+            COALESCE(NULLIF(mb.message, ''), '입찰 메시지 없음') AS content,
+            CASE
+                WHEN mb.status = 'CANCELED' THEN 'CANCELLED'
+                ELSE mb.status
+            END AS status,
+            (
+                SELECT COUNT(*)
+                FROM report r
+                WHERE r.target_type IN ('MATCH_BID', 'MATCH_COMMENT')
+                  AND r.target_id = CAST(mb.id AS CHAR)
+                  AND r.status = 'PENDING'
+            ) AS reportCount,
+            mb.deleted AS deleted,
+            m.created_at AS createdAt
+        FROM match_bid mb
+        JOIN `match` m
+          ON mb.match_id = m.id
+        JOIN member lawyer
+          ON mb.lawyer_id = lawyer.user_id
+        <include refid="bidWhere" />
+        ORDER BY
+            reportCount DESC,
+            mb.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="selectPostTarget"
+            resultType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardTargetInfo">
+        SELECT
+            id AS targetId,
+            user_id AS ownerUserId,
+            title AS targetTitle,
+            deleted AS deleted,
+            status AS status,
+            id AS matchId,
+            title AS matchTitle
+        FROM `match`
+        WHERE id = #{matchId}
+    </select>
+
+    <select id="selectBidTarget"
+            resultType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardTargetInfo">
+        SELECT
+            mb.id AS targetId,
+            mb.lawyer_id AS ownerUserId,
+            COALESCE(NULLIF(mb.message, ''), '입찰 메시지 없음') AS targetTitle,
+            mb.deleted AS deleted,
+            mb.status AS status,
+            mb.match_id AS matchId,
+            m.title AS matchTitle
+        FROM match_bid mb
+        JOIN `match` m
+          ON mb.match_id = m.id
+        WHERE mb.id = #{bidId}
+    </select>
+
+    <update id="closePost">
+        UPDATE `match`
+        SET status = 'CLOSED'
+        WHERE id = #{matchId}
+          AND deleted = 1
+          AND status NOT IN ('CLOSED', 'CANCELLED', 'CANCELED')
+    </update>
+
+    <update id="softDeletePost">
+        UPDATE `match`
+        SET deleted = 0
+        WHERE id = #{matchId}
+          AND deleted = 1
+    </update>
+
+    <update id="restorePost">
+        UPDATE `match`
+        SET deleted = 1
+        WHERE id = #{matchId}
+          AND deleted = 0
+    </update>
+
+    <update id="softDeleteBid">
+        UPDATE match_bid
+        SET deleted = 0
+        WHERE id = #{bidId}
+          AND deleted = 1
+    </update>
+
+    <update id="restoreBid">
+        UPDATE match_bid
+        SET deleted = 1
+        WHERE id = #{bidId}
+          AND deleted = 0
+    </update>
+
+    <insert id="insertActionHistory"
+            parameterType="com.sanavi.backend.admin.matchboard.dto.AdminMatchBoardActionHistory">
+        INSERT INTO member_admin_action_history (
+            admin_user_id,
+            target_user_id,
+            action_type,
+            reason,
+            created_at
+        ) VALUES (
+            #{adminUserId},
+            #{targetUserId},
+            #{actionType},
+            #{reason},
+            NOW()
+        )
+    </insert>
+
+</mapper>

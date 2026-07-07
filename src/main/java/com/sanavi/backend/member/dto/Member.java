@@ -21,7 +21,21 @@ public class Member {
     private String gender;
     private int subscribe;
     private LocalDateTime createdAt;
-    private int deleted;
+
     private int aiCount;
     private String role;
+    private String firmName;
+    private String sido;
+    private String sigungu;
+    private String regionDetail;
+    private Integer experienceYears;
+    private String specialty;
+    private Integer deleted;
+    private LocalDateTime withdrawnAt;
+
+    private Integer loginRestrictionDays;
+    private LocalDateTime loginRestrictedAt;
+    private LocalDateTime loginRestrictedUntil;
+    private String loginRestrictionReason;
+    private String loginRestrictedBy;
 }

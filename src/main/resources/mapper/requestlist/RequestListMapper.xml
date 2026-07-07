@@ -5,19 +5,26 @@
 
 <mapper namespace="com.sanavi.backend.requestlist.mapper.RequestListMapper">
 
+    <!-- 변호사 목록 — specialty(LIKE), sido(완전일치) 필터 선택 적용 -->
     <select id="selectLawyerList"
             resultType="com.sanavi.backend.requestlist.dto.LawyerListResponseDto">
         SELECT
             ml.user_id AS lawyerId,
             m.name AS lawyerName,
             ml.firm_name AS firmName,
-            ml.region AS region,
+            CONCAT_WS(' ', ml.sido, ml.sigungu, ml.region_detail) AS region,
             ml.experience_years AS experienceYears,
             ml.specialty AS specialty
         FROM member_lawyers ml
         JOIN member m
           ON ml.user_id = m.user_id
         WHERE m.deleted = 1
+        <if test="specialty != null and specialty != ''">
+            AND ml.specialty LIKE CONCAT('%', #{specialty}, '%')
+        </if>
+        <if test="sido != null and sido != ''">
+            AND ml.sido = #{sido}
+        </if>
         ORDER BY ml.experience_years DESC, m.name ASC
     </select>
 
@@ -27,7 +34,7 @@
             ml.user_id AS lawyerId,
             m.name AS lawyerName,
             ml.firm_name AS firmName,
-            ml.region AS region,
+            CONCAT_WS(' ', ml.sido, ml.sigungu, ml.region_detail) AS region,
             ml.experience_years AS experienceYears,
             ml.specialty AS specialty,
             m.email AS email,

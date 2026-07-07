@@ -17,6 +17,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 // 책임: 로그 이벤트를 버퍼에 모아 S3에 업로드하는 Logback Appender
 //       AppenderBase를 상속 — doAppend()가 내부적으로 synchronized 처리됨
@@ -39,6 +42,8 @@ public class S3LogAppender extends AppenderBase<ILoggingEvent> {
     private S3Client s3Client;
     // AppenderBase.doAppend()가 synchronized이므로 buffer는 단일 스레드에서만 접근됨
     private final List<String> buffer = new ArrayList<>();
+    // flushThreshold(카운트 기반) 도달 전이라도 트래픽이 적을 때 최소 시간당 1회 flush를 보장하는 스케줄러
+    private ScheduledExecutorService scheduler;
 
     private static final DateTimeFormatter LOG_TS_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.of("Asia/Seoul"));
@@ -59,6 +64,14 @@ public class S3LogAppender extends AppenderBase<ILoggingEvent> {
         // JVM 종료 시 버퍼에 남은 로그가 유실되지 않도록 플러시
         Runtime.getRuntime().addShutdownHook(new Thread(this::flush, "s3-log-shutdown"));
 
+        // 트래픽이 적어 flushThreshold(카운트)에 못 미치더라도 최소 1시간마다는 강제 flush
+        scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "s3-log-hourly-flush");
+            t.setDaemon(true);
+            return t;
+        });
+        scheduler.scheduleAtFixedRate(this::flush, 1, 1, TimeUnit.HOURS);
+
         super.start();
     }
 
@@ -78,6 +91,9 @@ public class S3LogAppender extends AppenderBase<ILoggingEvent> {
     // 책임:   Appender 종료 시 남은 버퍼 플러시 후 S3Client 반환
     @Override
     public void stop() {
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+        }
         flush();
         if (s3Client != null) {
             s3Client.close();
@@ -120,14 +136,19 @@ public class S3LogAppender extends AppenderBase<ILoggingEvent> {
 
     // Input:  ILoggingEvent
     // Output: JSON 한 줄 — Athena에서 컬럼으로 바로 쿼리 가능한 NDJSON 형식
+    // userId/handler는 FILE_JSON appender(LogstashEncoder)가 이미 MDC에서 로깅하던 필드 — 관리자 로그 조회에서
+    // userId/서비스(API)별 검색을 지원하기 위해 S3 포맷도 동일하게 맞춤 (2026-07-02)
     private String format(ILoggingEvent event) {
         String traceId  = event.getMDCPropertyMap().getOrDefault("traceId",   "-");
         String clientIp = event.getMDCPropertyMap().getOrDefault("clientIp",  "-");
+        String userId   = event.getMDCPropertyMap().getOrDefault("userId",    "-");
+        String handler  = event.getMDCPropertyMap().getOrDefault("handler",   "-");
         String timestamp = LOG_TS_FMT.format(Instant.ofEpochMilli(event.getTimeStamp()));
         return String.format(
-                "{\"timestamp\":\"%s\",\"traceId\":\"%s\",\"clientIp\":\"%s\",\"level\":\"%s\",\"logger\":\"%s\",\"message\":\"%s\"}%n",
+                "{\"timestamp\":\"%s\",\"traceId\":\"%s\",\"clientIp\":\"%s\",\"level\":\"%s\",\"logger\":\"%s\",\"message\":\"%s\",\"userId\":\"%s\",\"handler\":\"%s\"}%n",
                 timestamp, traceId, clientIp,
-                event.getLevel(), escapeJson(event.getLoggerName()), escapeJson(event.getFormattedMessage())
+                event.getLevel(), escapeJson(event.getLoggerName()), escapeJson(event.getFormattedMessage()),
+                escapeJson(userId), escapeJson(handler)
         );
     }
 

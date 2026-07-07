@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.admin.statistics.mapper.AdminStatisticsMapper">
+
+    <!-- 회원 — 일별(최근 7일)/월별(최근 6개월) 회원 가입 추이 -->
+    <select id="selectSignupTrend" resultType="com.sanavi.backend.common.dto.TrendPointDto">
+        <choose>
+            <when test="range == 'monthly'">
+                SELECT DATE_FORMAT(created_at, '%Y-%m') AS label, COUNT(*) AS count
+                FROM member
+                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+                GROUP BY label
+                ORDER BY label
+            </when>
+            <otherwise>
+                SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS label, COUNT(*) AS count
+                FROM member
+                WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+                GROUP BY label
+                ORDER BY label
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 회원 — 일별/월별 회원 이탈 추이 (withdrawn_at 기준) -->
+    <select id="selectWithdrawalTrend" resultType="com.sanavi.backend.common.dto.TrendPointDto">
+        <choose>
+            <when test="range == 'monthly'">
+                SELECT DATE_FORMAT(withdrawn_at, '%Y-%m') AS label, COUNT(*) AS count
+                FROM member
+                WHERE withdrawn_at IS NOT NULL
+                  AND withdrawn_at >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+                GROUP BY label
+                ORDER BY label
+            </when>
+            <otherwise>
+                SELECT DATE_FORMAT(withdrawn_at, '%Y-%m-%d') AS label, COUNT(*) AS count
+                FROM member
+                WHERE withdrawn_at IS NOT NULL
+                  AND withdrawn_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+                GROUP BY label
+                ORDER BY label
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="countTotalMembers" resultType="int">
+        SELECT COUNT(*) FROM member WHERE deleted = 1
+    </select>
+
+    <select id="countMembersBySubscribe" resultType="int">
+        SELECT COUNT(*) FROM member WHERE deleted = 1 AND subscribe = #{subscribe}
+    </select>
+
+    <!-- Basic(subscribe=0) 중 무료 횟수(3회)를 다 쓴 회원 수 — 구독 전환 유도 지표 -->
+    <select id="countAiCountExhausted" resultType="int">
+        SELECT COUNT(*) FROM member WHERE deleted = 1 AND subscribe = 0 AND ai_count >= 3
+    </select>
+
+    <!-- 관리자 다중필터 조합 검색 — 구독여부·유저타입·직업으로 후보 유저를 먼저 추림 -->
+    <select id="selectMemberCandidates" resultType="string">
+        SELECT user_id
+        FROM member
+        WHERE deleted = 1
+        <if test="subscribe != null">AND subscribe = #{subscribe}</if>
+        <if test="role != null and role != ''">AND role = #{role}</if>
+        <if test="job != null and job != ''">AND job LIKE CONCAT('%', #{job}, '%')</if>
+        ORDER BY created_at DESC
+        <if test="limit > 0">LIMIT #{limit}</if>
+    </select>
+
+    <!-- 직업 키워드 TOP N 목록 생성용 원본 데이터 (단어 분리·빈도집계는 서비스 레이어에서 처리) -->
+    <select id="selectAllJobs" resultType="string">
+        SELECT job FROM member WHERE deleted = 1 AND job IS NOT NULL AND job != ''
+    </select>
+
+    <!-- 관리자 다중필터 조합 검색 — 후보 유저들이 의뢰인(m.user_id)으로서 작성한 의뢰글 현황.
+         matchCount는 의뢰글 자체 수라 LEFT JOIN으로 입찰이 하나도 없는 의뢰글도 놓치지 않고,
+         closedCount·totalBidAmount는 매칭성사(CLOSED) + 낙찰(SELECTED) 조건을 만족할 때만 집계 -->
+    <select id="selectMatchSummaryForUsers" resultType="com.sanavi.backend.admin.statistics.dto.MatchSummaryDto">
+        SELECT
+            COUNT(DISTINCT m.id) AS matchCount,
+            COUNT(DISTINCT CASE WHEN m.status = 'CLOSED' THEN m.id END) AS closedCount,
+            COALESCE(SUM(CASE WHEN m.status = 'CLOSED' AND mb.status = 'SELECTED' THEN mb.bid_price END), 0) AS totalBidAmount
+        FROM `match` m
+        LEFT JOIN match_bid mb ON mb.match_id = m.id AND mb.deleted = 1
+        WHERE m.deleted = 1
+          AND m.created_at >= #{startDate}
+          AND m.user_id IN
+        <foreach collection="userIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+
+    <!-- 매칭 — 전체 의뢰글 수 / 상태별 건수 / 입찰 평균가 -->
+    <select id="countTotalMatches" resultType="int">
+        SELECT COUNT(*) FROM `match` WHERE deleted = 1
+    </select>
+
+    <select id="countMatchesByStatus" resultType="int">
+        SELECT COUNT(*) FROM `match` WHERE deleted = 1 AND status = #{status}
+    </select>
+
+    <select id="selectAverageBidPrice" resultType="java.lang.Double">
+        SELECT AVG(bid_price) FROM match_bid WHERE deleted = 1
+    </select>
+
+    <!-- 변호사 풀 — 지역/전문분야 분포, 평균 경력 -->
+    <select id="countTotalLawyers" resultType="int">
+        SELECT COUNT(*)
+        FROM member_lawyers ml
+        JOIN member m ON ml.user_id = m.user_id
+        WHERE m.deleted = 1
+    </select>
+
+    <select id="selectLawyerCountBySido" resultType="com.sanavi.backend.common.dto.TrendPointDto">
+        SELECT ml.sido AS label, COUNT(*) AS count
+        FROM member_lawyers ml
+        JOIN member m ON ml.user_id = m.user_id
+        WHERE m.deleted = 1
+        GROUP BY ml.sido
+        ORDER BY count DESC
+    </select>
+
+    <select id="selectLawyerCountBySpecialty" resultType="com.sanavi.backend.common.dto.TrendPointDto">
+        SELECT ml.specialty AS label, COUNT(*) AS count
+        FROM member_lawyers ml
+        JOIN member m ON ml.user_id = m.user_id
+        WHERE m.deleted = 1
+        GROUP BY ml.specialty
+        ORDER BY count DESC
+    </select>
+
+    <select id="selectAverageExperienceYears" resultType="java.lang.Double">
+        SELECT AVG(ml.experience_years)
+        FROM member_lawyers ml
+        JOIN member m ON ml.user_id = m.user_id
+        WHERE m.deleted = 1
+    </select>
+
+</mapper>

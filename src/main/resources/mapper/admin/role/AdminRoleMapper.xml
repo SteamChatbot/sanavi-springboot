@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.admin.role.mapper.AdminRoleMapper">
+
+    <select id="selectAdminAssignments"
+            resultType="com.sanavi.backend.admin.role.dto.AdminRoleAssignmentResponseDto">
+        SELECT
+            m.user_id AS userId,
+            m.name AS name,
+            m.email AS email,
+            m.role AS memberRole,
+            ara.admin_role_type AS adminRoleType,
+            ara.assigned_by AS assignedBy,
+            ara.assigned_at AS assignedAt,
+            ara.updated_by AS updatedBy,
+            ara.updated_at AS updatedAt,
+            ara.active AS active,
+            m.created_at AS createdAt
+        FROM member m
+        LEFT JOIN admin_role_assignment ara
+               ON ara.user_id = m.user_id
+              AND ara.active = 1
+        WHERE m.role = 'role_admin'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                m.user_id LIKE CONCAT('%', #{keyword}, '%')
+                OR m.name LIKE CONCAT('%', #{keyword}, '%')
+                OR m.email LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY
+            CASE ara.admin_role_type
+                WHEN 'SUPER_ADMIN' THEN 1
+                WHEN 'OPERATIONS_ADMIN' THEN 2
+                WHEN 'SUPPORT_ADMIN' THEN 3
+                ELSE 4
+            END,
+            m.created_at DESC
+    </select>
+
+    <select id="selectAdminAssignmentByUserId"
+            resultType="com.sanavi.backend.admin.role.dto.AdminRoleAssignmentResponseDto">
+        SELECT
+            m.user_id AS userId,
+            m.name AS name,
+            m.email AS email,
+            m.role AS memberRole,
+            ara.admin_role_type AS adminRoleType,
+            ara.assigned_by AS assignedBy,
+            ara.assigned_at AS assignedAt,
+            ara.updated_by AS updatedBy,
+            ara.updated_at AS updatedAt,
+            ara.active AS active,
+            m.created_at AS createdAt
+        FROM member m
+        LEFT JOIN admin_role_assignment ara
+               ON ara.user_id = m.user_id
+        WHERE m.user_id = #{userId}
+    </select>
+
+    <select id="selectActiveAdminRoleType"
+            resultType="string">
+        SELECT admin_role_type
+        FROM admin_role_assignment
+        WHERE user_id = #{userId}
+          AND active = 1
+    </select>
+
+    <select id="countActiveSuperAdmins"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM admin_role_assignment ara
+        INNER JOIN member m
+                ON m.user_id = ara.user_id
+        WHERE ara.admin_role_type = 'SUPER_ADMIN'
+          AND ara.active = 1
+          AND m.role = 'role_admin'
+          AND m.deleted = 1
+    </select>
+
+    <select id="selectAdminCandidates"
+            resultType="com.sanavi.backend.admin.role.dto.AdminRoleCandidateResponseDto">
+        SELECT
+            m.user_id AS userId,
+            m.name AS name,
+            m.email AS email,
+            m.role AS role,
+            m.deleted AS deleted,
+            m.created_at AS createdAt
+        FROM member m
+        WHERE m.deleted = 1
+          AND m.role = 'role_user'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                m.user_id LIKE CONCAT('%', #{keyword}, '%')
+                OR m.name LIKE CONCAT('%', #{keyword}, '%')
+                OR m.email LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        ORDER BY m.created_at DESC
+        LIMIT #{size}
+        OFFSET #{offset}
+    </select>
+
+    <select id="countAdminCandidates"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM member m
+        WHERE m.deleted = 1
+          AND m.role = 'role_user'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                m.user_id LIKE CONCAT('%', #{keyword}, '%')
+                OR m.name LIKE CONCAT('%', #{keyword}, '%')
+                OR m.email LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </select>
+
+    <update id="updateMemberRole">
+        UPDATE member
+        SET role = #{role}
+        WHERE user_id = #{userId}
+    </update>
+
+    <insert id="upsertAdminRoleAssignment">
+        INSERT INTO admin_role_assignment (
+            user_id,
+            admin_role_type,
+            assigned_by,
+            assigned_at,
+            active
+        ) VALUES (
+            #{userId},
+            #{adminRoleType},
+            #{adminUserId},
+            NOW(),
+            1
+        )
+        ON DUPLICATE KEY UPDATE
+            admin_role_type = #{adminRoleType},
+            assigned_by = CASE
+                WHEN active = 0 THEN #{adminUserId}
+                ELSE assigned_by
+            END,
+            assigned_at = CASE
+                WHEN active = 0 THEN NOW()
+                ELSE assigned_at
+            END,
+            updated_by = #{adminUserId},
+            updated_at = NOW(),
+            active = 1
+    </insert>
+
+    <update id="deactivateAdminRoleAssignment">
+        UPDATE admin_role_assignment
+        SET
+            active = 0,
+            updated_by = #{adminUserId},
+            updated_at = NOW()
+        WHERE user_id = #{userId}
+          AND active = 1
+    </update>
+
+    <insert id="insertAdminActionHistory"
+            parameterType="com.sanavi.backend.admin.role.dto.AdminRoleActionHistory">
+        INSERT INTO member_admin_action_history (
+            target_user_id,
+            admin_user_id,
+            report_id,
+            action_type,
+            action_reason,
+            before_value,
+            after_value,
+            created_at
+        ) VALUES (
+            #{targetUserId},
+            #{adminUserId},
+            #{reportId},
+            #{actionType},
+            #{actionReason},
+            #{beforeValue},
+            #{afterValue},
+            NOW()
+        )
+    </insert>
+
+</mapper>

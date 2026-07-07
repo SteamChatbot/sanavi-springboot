@@ -11,12 +11,14 @@ import org.springframework.web.multipart.MultipartFile;
 import com.sanavi.backend.board.dto.BoardFileDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class S3FileService {
@@ -28,6 +30,11 @@ public class S3FileService {
 
     public BoardFileDto uploadBoardFile(int boardId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
+            log.warn(
+                    "action=S3_FILE_UPLOAD board_id={} result=DENIED reason=EMPTY_FILE",
+                    boardId
+            );
+
             throw new IllegalArgumentException("빈 파일은 업로드할 수 없습니다.");
         }
 
@@ -56,20 +63,53 @@ public class S3FileService {
             dto.setFilePath(key);
             dto.setFileSize(file.getSize());
 
+            log.debug(
+                    "action=S3_FILE_UPLOAD board_id={} object_key={} file_size={} result=SUCCESS",
+                    boardId,
+                    key,
+                    file.getSize()
+            );
+
             return dto;
         } catch (IOException e) {
+            log.error(
+                    "action=S3_FILE_UPLOAD board_id={} object_key={} file_size={} result=FAIL exception={}",
+                    boardId,
+                    key,
+                    file.getSize(),
+                    e.getClass().getSimpleName()
+            );
+
             throw new RuntimeException("S3 파일 업로드에 실패했습니다.", e);
         }
     }
 
     public byte[] download(String key) {
-        ResponseBytes<GetObjectResponse> objectBytes =
-                s3Client.getObjectAsBytes(builder -> builder
-                        .bucket(bucket)
-                        .key(key)
-                        .build());
+        try {
+            ResponseBytes<GetObjectResponse> objectBytes =
+                    s3Client.getObjectAsBytes(builder -> builder
+                            .bucket(bucket)
+                            .key(key)
+                            .build());
 
-        return objectBytes.asByteArray();
+            byte[] data = objectBytes.asByteArray();
+
+            log.debug(
+                    "action=S3_FILE_DOWNLOAD object_key={} file_size={} result=SUCCESS",
+                    key,
+                    data.length
+            );
+
+            return data;
+        } catch (RuntimeException e) {
+            log.error(
+                    "action=S3_FILE_DOWNLOAD object_key={} result=FAIL exception={}",
+                    key,
+                    e.getClass().getSimpleName()
+            );
+
+            throw e;
+        }
     }
 
     private String getExtension(String filename) {

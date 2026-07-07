@@ -1,18 +1,17 @@
 package com.sanavi.backend.common.aspect;
 
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
-import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Aspect
 @Component
 public class LoggingAspect {
 
-    // Controller + Service 전체를 포인트컷으로 잡음
     // 파라미터는 찍지 않음 — password, 파일 바이트 등 민감 데이터가 섞일 수 있음
     @Around("execution(* com.sanavi.backend..controller..*(..))" +
             " || execution(* com.sanavi.backend..service..*(..))")
@@ -20,16 +19,26 @@ public class LoggingAspect {
         String method = pjp.getSignature().toShortString();
         long start = System.currentTimeMillis();
 
-        // trace_id는 MDC → 패턴에서 자동 출력되므로 메시지에 중복 포함 안 함
-        log.info("START {}", method);
+        log.info("START target={}", method);
+
         try {
             Object result = pjp.proceed();
-            log.info("END   {} — {}ms", method, System.currentTimeMillis() - start);
+
+            log.info(
+                    "END target={} duration_ms={}",
+                    method,
+                    System.currentTimeMillis() - start
+            );
+
             return result;
         } catch (Exception e) {
-            // 예외 시 실행시간만 찍고 스택트레이스는 GlobalExceptionHandler에 위임
-            log.error("ERROR {} — {}ms ({})", method,
-                    System.currentTimeMillis() - start, e.getClass().getSimpleName());
+            log.error(
+                    "ERROR target={} duration_ms={} exception={}",
+                    method,
+                    System.currentTimeMillis() - start,
+                    e.getClass().getSimpleName()
+            );
+
             throw e;
         }
     }

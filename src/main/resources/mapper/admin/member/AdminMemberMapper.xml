@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.admin.member.mapper.AdminMemberMapper">
+
+    <sql id="memberStatusCase">
+        CASE
+            WHEN m.deleted != 1 THEN 'WITHDRAWN'
+            WHEN COALESCE(m.login_restriction_days, 0) > 0
+                 AND (
+                    m.login_restricted_until IS NULL
+                    OR m.login_restricted_until > NOW()
+                 )
+                THEN 'LOGIN_RESTRICTED'
+            ELSE 'ACTIVE'
+        END
+    </sql>
+
+    <select id="selectMembers"
+            resultType="com.sanavi.backend.admin.member.dto.AdminMemberResponseDto">
+        SELECT
+            m.user_id AS userId,
+            m.name AS name,
+            m.email AS email,
+            m.role AS role,
+            m.subscribe AS subscribe,
+            m.ai_count AS aiCount,
+            m.created_at AS createdAt,
+            m.deleted AS deleted,
+            m.withdrawn_at AS withdrawnAt,
+            m.login_restriction_days AS loginRestrictionDays,
+            m.login_restricted_at AS loginRestrictedAt,
+            m.login_restricted_until AS loginRestrictedUntil,
+            m.login_restriction_reason AS loginRestrictionReason,
+            m.login_restricted_by AS loginRestrictedBy,
+            (
+                SELECT COUNT(*)
+                FROM report r
+                WHERE r.reported_user_id = m.user_id
+            ) AS reportReceivedCount,
+            <include refid="memberStatusCase" /> AS status
+        FROM member m
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    m.user_id LIKE CONCAT('%', #{keyword}, '%')
+                    OR m.name LIKE CONCAT('%', #{keyword}, '%')
+                    OR m.email LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+
+            <if test="role != null and role != ''">
+                AND m.role = #{role}
+            </if>
+
+            <if test="subscribe != null">
+                AND m.subscribe = #{subscribe}
+            </if>
+
+            <if test="status != null and status == 'ACTIVE'">
+                AND m.deleted = 1
+                AND COALESCE(m.login_restriction_days, 0) = 0
+            </if>
+
+            <if test="status != null and status == 'LOGIN_RESTRICTED'">
+                AND m.deleted = 1
+                AND COALESCE(m.login_restriction_days, 0) > 0
+                AND (
+                    m.login_restricted_until IS NULL
+                    OR m.login_restricted_until > NOW()
+                )
+            </if>
+
+            <if test="status != null and status == 'WITHDRAWN'">
+                AND m.deleted != 1
+            </if>
+        </where>
+        ORDER BY m.created_at DESC
+        LIMIT #{size}
+        OFFSET #{offset}
+    </select>
+
+    <select id="countMembers"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM member m
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    m.user_id LIKE CONCAT('%', #{keyword}, '%')
+                    OR m.name LIKE CONCAT('%', #{keyword}, '%')
+                    OR m.email LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+
+            <if test="role != null and role != ''">
+                AND m.role = #{role}
+            </if>
+
+            <if test="subscribe != null">
+                AND m.subscribe = #{subscribe}
+            </if>
+
+            <if test="status != null and status == 'ACTIVE'">
+                AND m.deleted = 1
+                AND COALESCE(m.login_restriction_days, 0) = 0
+            </if>
+
+            <if test="status != null and status == 'LOGIN_RESTRICTED'">
+                AND m.deleted = 1
+                AND COALESCE(m.login_restriction_days, 0) > 0
+                AND (
+                    m.login_restricted_until IS NULL
+                    OR m.login_restricted_until > NOW()
+                )
+            </if>
+
+            <if test="status != null and status == 'WITHDRAWN'">
+                AND m.deleted != 1
+            </if>
+        </where>
+    </select>
+
+    <select id="selectMemberByUserId"
+            resultType="com.sanavi.backend.admin.member.dto.AdminMemberResponseDto">
+        SELECT
+            m.user_id AS userId,
+            m.name AS name,
+            m.email AS email,
+            m.role AS role,
+            m.subscribe AS subscribe,
+            m.ai_count AS aiCount,
+            m.created_at AS createdAt,
+            m.deleted AS deleted,
+            m.withdrawn_at AS withdrawnAt,
+            m.login_restriction_days AS loginRestrictionDays,
+            m.login_restricted_at AS loginRestrictedAt,
+            m.login_restricted_until AS loginRestrictedUntil,
+            m.login_restriction_reason AS loginRestrictionReason,
+            m.login_restricted_by AS loginRestrictedBy,
+            (
+                SELECT COUNT(*)
+                FROM report r
+                WHERE r.reported_user_id = m.user_id
+            ) AS reportReceivedCount,
+            <include refid="memberStatusCase" /> AS status
+        FROM member m
+        WHERE m.user_id = #{userId}
+    </select>
+
+    <update id="releaseExpiredLoginRestrictions">
+        UPDATE member
+        SET
+            login_restriction_days = 0,
+            login_restricted_at = NULL,
+            login_restricted_until = NULL,
+            login_restriction_reason = NULL,
+            login_restricted_by = NULL
+        WHERE COALESCE(login_restriction_days, 0) > 0
+          AND login_restricted_until IS NOT NULL
+          AND login_restricted_until &lt;= NOW()
+          AND deleted = 1
+    </update>
+
+    <update id="updateSubscribe">
+        UPDATE member
+        SET subscribe = #{subscribe}
+        WHERE user_id = #{userId}
+          AND deleted = 1
+    </update>
+
+    <update id="resetAiCount">
+        UPDATE member
+        SET ai_count = 0
+        WHERE user_id = #{userId}
+          AND deleted = 1
+    </update>
+
+    <insert id="insertAdminActionHistory"
+            parameterType="com.sanavi.backend.admin.member.dto.AdminMemberActionHistory">
+        INSERT INTO member_admin_action_history (
+            target_user_id,
+            admin_user_id,
+            report_id,
+            action_type,
+            action_reason,
+            before_value,
+            after_value,
+            created_at
+        ) VALUES (
+            #{targetUserId},
+            #{adminUserId},
+            #{reportId},
+            #{actionType},
+            #{actionReason},
+            #{beforeValue},
+            #{afterValue},
+            NOW()
+        )
+    </insert>
+
+</mapper>
