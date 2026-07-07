@@ -84,8 +84,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of(
-                "http://localhost:3000", "http://127.0.0.1:3000", "http://192.168.0.45:3000", "http://192.168.0.70:3000",
-                // S3 정적 웹사이트 호스팅(프론트 배포 테스트용, 로컬 백엔드에 직접 붙여서 확인하는 임시 구성)
+                "http://localhost:3000", "http://127.0.0.1:3000",
+                "http://localhost:5173", "http://127.0.0.1:5173",
+                "http://192.168.0.45:3000", "http://192.168.0.70:3000",
+                "http://192.168.0.103:3000",
+                // S3 정적 웹사이트 호스팅
                 "http://sanavi-dev-frontend-306005334125-ap-northeast-2-an.s3-website.ap-northeast-2.amazonaws.com"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
