@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.sanavi.backend.admin.board.mapper.AdminBoardMapper">
+
+    <sql id="postWhere">
+        WHERE 1 = 1
+
+        <choose>
+            <when test="status == 'ACTIVE'">
+                AND b.deleted = 1
+            </when>
+            <when test="status == 'DELETED'">
+                AND b.deleted = 0
+            </when>
+            <when test="status == 'ALL'">
+            </when>
+            <otherwise>
+                AND b.deleted = 1
+            </otherwise>
+        </choose>
+
+        <if test="reportedOnly != null and reportedOnly">
+            AND COALESCE(b.report_count, 0) &gt; 0
+        </if>
+
+        <if test="keyword != null and keyword != ''">
+            AND (
+                b.title LIKE CONCAT('%', #{keyword}, '%')
+                OR b.content LIKE CONCAT('%', #{keyword}, '%')
+                OR b.nickname LIKE CONCAT('%', #{keyword}, '%')
+                OR b.user_id LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <sql id="commentWhere">
+        WHERE 1 = 1
+
+        <choose>
+            <when test="status == 'ACTIVE'">
+                AND c.deleted = 1
+            </when>
+            <when test="status == 'DELETED'">
+                AND c.deleted = 0
+            </when>
+            <otherwise>
+                AND c.deleted = 1
+            </otherwise>
+        </choose>
+
+        <if test="reportedOnly != null and reportedOnly">
+            AND COALESCE(c.report_count, 0) &gt; 0
+        </if>
+
+        <if test="keyword != null and keyword != ''">
+            AND (
+                c.content LIKE CONCAT('%', #{keyword}, '%')
+                OR c.nickname LIKE CONCAT('%', #{keyword}, '%')
+                OR c.user_id LIKE CONCAT('%', #{keyword}, '%')
+                OR b.title LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <select id="countPosts"
+            parameterType="com.sanavi.backend.admin.board.dto.AdminBoardListRequestDto"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM board b
+        <include refid="postWhere" />
+    </select>
+
+    <select id="selectPosts"
+            parameterType="com.sanavi.backend.admin.board.dto.AdminBoardListRequestDto"
+            resultType="com.sanavi.backend.admin.board.dto.AdminBoardPostResponseDto">
+        SELECT
+            b.id AS boardId,
+            b.user_id AS authorId,
+            b.nickname AS authorName,
+            b.title AS title,
+            b.content AS content,
+            b.view_count AS viewCount,
+            COALESCE(b.report_count, 0) AS reportCount,
+            b.deleted AS deleted,
+            CASE
+                WHEN b.deleted = 1 THEN 'ACTIVE'
+                ELSE 'DELETED'
+            END AS status,
+            b.created_at AS createdAt,
+            b.updated_at AS updatedAt
+        FROM board b
+        <include refid="postWhere" />
+        ORDER BY
+            COALESCE(b.report_count, 0) DESC,
+            b.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="countComments"
+            parameterType="com.sanavi.backend.admin.board.dto.AdminBoardListRequestDto"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM board_comment c
+        LEFT JOIN board b
+               ON c.board_id = b.id
+        <include refid="commentWhere" />
+    </select>
+
+    <select id="selectComments"
+            parameterType="com.sanavi.backend.admin.board.dto.AdminBoardListRequestDto"
+            resultType="com.sanavi.backend.admin.board.dto.AdminBoardCommentResponseDto">
+        SELECT
+            c.id AS commentId,
+            c.board_id AS boardId,
+            b.title AS boardTitle,
+            c.user_id AS authorId,
+            c.nickname AS authorName,
+            c.content AS content,
+            COALESCE(c.report_count, 0) AS reportCount,
+            c.deleted AS deleted,
+            CASE
+                WHEN c.deleted = 1 THEN 'ACTIVE'
+                ELSE 'DELETED'
+            END AS status,
+            c.created_at AS createdAt
+        FROM board_comment c
+        LEFT JOIN board b
+               ON c.board_id = b.id
+        <include refid="commentWhere" />
+        ORDER BY
+            COALESCE(c.report_count, 0) DESC,
+            c.id DESC
+        LIMIT #{size} OFFSET #{offset}
+    </select>
+
+    <select id="selectPostTarget"
+            resultType="com.sanavi.backend.admin.board.dto.AdminBoardTargetInfo">
+        SELECT
+            id AS targetId,
+            user_id AS ownerUserId,
+            title AS targetTitle,
+            deleted AS deleted
+        FROM board
+        WHERE id = #{boardId}
+    </select>
+
+    <select id="selectCommentTarget"
+            resultType="com.sanavi.backend.admin.board.dto.AdminBoardTargetInfo">
+        SELECT
+            id AS targetId,
+            user_id AS ownerUserId,
+            content AS targetTitle,
+            deleted AS deleted
+        FROM board_comment
+        WHERE id = #{commentId}
+    </select>
+
+    <update id="softDeletePost">
+        UPDATE board
+        SET deleted = 0
+        WHERE id = #{boardId}
+          AND deleted = 1
+    </update>
+
+    <update id="restorePost">
+        UPDATE board
+        SET deleted = 1
+        WHERE id = #{boardId}
+          AND deleted = 0
+    </update>
+
+    <update id="softDeleteComment">
+        UPDATE board_comment
+        SET deleted = 0
+        WHERE id = #{commentId}
+          AND deleted = 1
+    </update>
+
+    <update id="restoreComment">
+        UPDATE board_comment
+        SET deleted = 1
+        WHERE id = #{commentId}
+          AND deleted = 0
+    </update>
+
+    <insert id="insertActionHistory"
+            parameterType="com.sanavi.backend.admin.board.dto.AdminBoardActionHistory">
+        INSERT INTO member_admin_action_history (
+            admin_user_id,
+            target_user_id,
+            action_type,
+            reason,
+            created_at
+        ) VALUES (
+            #{adminUserId},
+            #{targetUserId},
+            #{actionType},
+            #{reason},
+            NOW()
+        )
+    </insert>
+
+</mapper>
