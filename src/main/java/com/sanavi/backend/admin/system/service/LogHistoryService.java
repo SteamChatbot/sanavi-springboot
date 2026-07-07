@@ -38,7 +38,7 @@ import com.sanavi.backend.common.service.S3Service;
 //   CREATE EXTERNAL TABLE IF NOT EXISTS sanavi_logs.sanavi_backend_logs (
 //     `timestamp` string, traceId string, clientIp string,
 //     level string, logger string, message string,
-//     userId string, handler string, duration string
+//     userId string, handler string
 //   )
 //   PARTITIONED BY (year string, month string, day string)
 //   ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'  -- Athena 기본 내장
@@ -93,7 +93,7 @@ public class LogHistoryService {
             List<Datum> data = row.data();
             entries.add(new LogEntryDto(
                     value(data, 0), value(data, 1), value(data, 2), value(data, 3),
-                    value(data, 4), value(data, 5), value(data, 6), value(data, 7), value(data, 8)
+                    value(data, 4), value(data, 5), value(data, 6), value(data, 7)
             ));
         }
         return entries;
@@ -152,7 +152,7 @@ public class LogHistoryService {
 
     private String buildSql(LocalDate date, String hour, String level, String userId, String handler) {
         StringBuilder sql = new StringBuilder()
-                .append("SELECT \"timestamp\", level, logger, message, traceId, clientIp, userId, handler, duration FROM ")
+                .append("SELECT \"timestamp\", level, logger, message, traceId, clientIp, userId, handler FROM ")
                 .append(database).append('.').append(table)
                 .append(" WHERE year='").append(date.getYear())
                 .append("' AND month='").append(String.format("%02d", date.getMonthValue()))
@@ -243,18 +243,21 @@ public class LogHistoryService {
         QueryExecutionState state;
         try {
             while (true) {
-                state = athenaClient.getQueryExecution(
+                var status = athenaClient.getQueryExecution(
                                 GetQueryExecutionRequest.builder().queryExecutionId(queryExecutionId).build())
-                        .queryExecution().status().state();
+                        .queryExecution().status();
+                state = status.state();
 
                 if (state == QueryExecutionState.SUCCEEDED) {
                     return;
                 }
                 if (state == QueryExecutionState.FAILED || state == QueryExecutionState.CANCELLED) {
-                    // 쿼리가 시작은 됐지만 실행 중 실패 — 보통 SQL/테이블 문제(예: Glue 테이블 미생성)라 ERROR
-                    log.error("action=ATHENA_QUERY_EXECUTE result=FAIL reason=QUERY_STATE_{} query_execution_id={}",
-                            state, queryExecutionId);
-                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Athena 쿼리 실행 실패: " + state);
+                    // stateChangeReason에 실제 SQL/스키마 에러 메시지가 들어있음(예: COLUMN_NOT_FOUND) —
+                    // 이게 없으면 FAILED라는 사실만 알고 원인은 AWS 콘솔에서 다시 찾아야 해서 반드시 같이 남김
+                    log.error("action=ATHENA_QUERY_EXECUTE result=FAIL reason=QUERY_STATE_{} query_execution_id={} detail={}",
+                            state, queryExecutionId, status.stateChangeReason());
+                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                            "Athena 쿼리 실행 실패: " + state + " (" + status.stateChangeReason() + ")");
                 }
                 if (System.currentTimeMillis() > deadline) {
                     // 타임아웃은 재시도하면 성공할 수도 있는 일시적 상황이라 WARN

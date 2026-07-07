@@ -25,12 +25,12 @@ public final class LogRingBuffer {
     }
 
     public static synchronized void add(long epochMilli, String level, String logger, String message,
-                                         String traceId, String clientIp, String userId, String handler, String duration) {
+                                         String traceId, String clientIp, String userId, String handler) {
         if (buffer.size() >= CAPACITY) {
             buffer.removeFirst();
         }
         buffer.addLast(new LogEntryDto(
-                TS_FMT.format(Instant.ofEpochMilli(epochMilli)), level, logger, message, traceId, clientIp, userId, handler, duration));
+                TS_FMT.format(Instant.ofEpochMilli(epochMilli)), level, logger, message, traceId, clientIp, userId, handler));
     }
 
     // Output: 최신순(내림차순) 최대 limit건 — level은 완전일치, userId/handler는 대소문자 무시 부분일치
