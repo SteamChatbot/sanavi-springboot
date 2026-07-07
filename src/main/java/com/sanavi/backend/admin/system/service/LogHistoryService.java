@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.athena.AthenaClient;
 import software.amazon.awssdk.services.athena.model.Datum;
 import software.amazon.awssdk.services.athena.model.GetQueryExecutionRequest;
@@ -37,7 +38,7 @@ import com.sanavi.backend.common.service.S3Service;
 //   CREATE EXTERNAL TABLE IF NOT EXISTS sanavi_logs.sanavi_backend_logs (
 //     `timestamp` string, traceId string, clientIp string,
 //     level string, logger string, message string,
-//     userId string, handler string
+//     userId string, handler string, duration string
 //   )
 //   PARTITIONED BY (year string, month string, day string)
 //   ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'  -- Athena 기본 내장
@@ -51,6 +52,9 @@ import com.sanavi.backend.common.service.S3Service;
 //   );
 // 파티션 프로젝션을 쓰므로 Glue 크롤러/MSCK REPAIR TABLE 불필요 — 경로 규칙이 이미 예측 가능한 패턴이라 바로 조회 가능.
 // Athena workgroup의 쿼리 결과 출력 위치는 s3://sanavi-dev-files/athena-results/ 로 설정 완료(SSE-S3 암호화 적용).
+// 아래 실패 로그들은 실제로 겪었던 이슈(IAM 권한 부족, output location 미설정, 버킷 불일치)를 재현 시 바로
+// 원인 파악할 수 있게 남겨둠 — AWS SDK 예외 메시지가 LoggingAspect의 일반 로그(exception=클래스명)보다 훨씬 구체적임.
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class LogHistoryService {
@@ -89,7 +93,7 @@ public class LogHistoryService {
             List<Datum> data = row.data();
             entries.add(new LogEntryDto(
                     value(data, 0), value(data, 1), value(data, 2), value(data, 3),
-                    value(data, 4), value(data, 5), value(data, 6), value(data, 7)
+                    value(data, 4), value(data, 5), value(data, 6), value(data, 7), value(data, 8)
             ));
         }
         return entries;
@@ -148,7 +152,7 @@ public class LogHistoryService {
 
     private String buildSql(LocalDate date, String hour, String level, String userId, String handler) {
         StringBuilder sql = new StringBuilder()
-                .append("SELECT \"timestamp\", level, logger, message, traceId, clientIp, userId, handler FROM ")
+                .append("SELECT \"timestamp\", level, logger, message, traceId, clientIp, userId, handler, duration FROM ")
                 .append(database).append('.').append(table)
                 .append(" WHERE year='").append(date.getYear())
                 .append("' AND month='").append(String.format("%02d", date.getMonthValue()))
@@ -197,6 +201,9 @@ public class LogHistoryService {
         int slash = withoutScheme.indexOf('/');
         String bucket = withoutScheme.substring(0, slash);
         if (!bucket.equals(s3Bucket)) {
+            // 코드 버그가 아니라 workgroup 콘솔 설정이 잘못된 경우라 관리자가 고칠 수 있는 설정 이슈 — WARN
+            log.warn("action=ATHENA_RESULT_BUCKET_MISMATCH result=FAIL expected_bucket={} actual_bucket={}",
+                    s3Bucket, bucket);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                     "Athena 쿼리결과 버킷(" + bucket + ")이 설정된 S3 버킷(" + s3Bucket + ")과 다릅니다. "
                             + "Athena workgroup의 쿼리 결과 출력 위치를 " + s3Bucket + " 버킷 안으로 다시 설정해주세요.");
@@ -224,6 +231,9 @@ public class LogHistoryService {
         try {
             return athenaClient.startQueryExecution(requestBuilder.build()).queryExecutionId();
         } catch (RuntimeException e) {
+            // IAM 권한 부족, output location 미설정 등 — 코드 버그가 아니라 AWS 설정 문제일 확률이 높은 실패라 ERROR
+            log.error("action=ATHENA_QUERY_START result=FAIL reason=START_QUERY_FAILED exception={} message={}",
+                    e.getClass().getSimpleName(), e.getMessage());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Athena 쿼리 시작에 실패했습니다: " + e.getMessage());
         }
     }
@@ -241,15 +251,22 @@ public class LogHistoryService {
                     return;
                 }
                 if (state == QueryExecutionState.FAILED || state == QueryExecutionState.CANCELLED) {
+                    // 쿼리가 시작은 됐지만 실행 중 실패 — 보통 SQL/테이블 문제(예: Glue 테이블 미생성)라 ERROR
+                    log.error("action=ATHENA_QUERY_EXECUTE result=FAIL reason=QUERY_STATE_{} query_execution_id={}",
+                            state, queryExecutionId);
                     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Athena 쿼리 실행 실패: " + state);
                 }
                 if (System.currentTimeMillis() > deadline) {
+                    // 타임아웃은 재시도하면 성공할 수도 있는 일시적 상황이라 WARN
+                    log.warn("action=ATHENA_QUERY_EXECUTE result=TIMEOUT query_execution_id={} timeout_ms={}",
+                            queryExecutionId, POLL_TIMEOUT_MS);
                     throw new ResponseStatusException(HttpStatus.GATEWAY_TIMEOUT, "로그 조회가 시간 초과되었습니다.");
                 }
                 Thread.sleep(POLL_INTERVAL_MS);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            log.warn("action=ATHENA_QUERY_EXECUTE result=INTERRUPTED query_execution_id={}", queryExecutionId);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "로그 조회가 중단되었습니다.");
         }
     }

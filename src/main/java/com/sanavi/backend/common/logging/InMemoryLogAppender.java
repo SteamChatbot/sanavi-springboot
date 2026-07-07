@@ -14,6 +14,7 @@ public class InMemoryLogAppender extends AppenderBase<ILoggingEvent> {
         String clientIp = event.getMDCPropertyMap().getOrDefault("clientIp", "-");
         String userId = event.getMDCPropertyMap().getOrDefault("userId", "-");
         String handler = event.getMDCPropertyMap().getOrDefault("handler", "-");
+        String duration = event.getMDCPropertyMap().getOrDefault("duration", "-");
         LogRingBuffer.add(
                 event.getTimeStamp(),
                 event.getLevel().toString(),
@@ -22,7 +23,8 @@ public class InMemoryLogAppender extends AppenderBase<ILoggingEvent> {
                 traceId,
                 clientIp,
                 userId,
-                handler
+                handler,
+                duration
         );
     }
 }

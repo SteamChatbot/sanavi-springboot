@@ -3,7 +3,20 @@
     <!-- 인메모리 링버퍼: 관리자 시스템 모니터링 페이지의 실시간 로그 조회용 — 모든 프로필 공통 -->
     <appender name="MEMORY" class="com.sanavi.backend.common.logging.InMemoryLogAppender"/>
 
-    <!-- 개발 환경: 콘솔에 텍스트로 출력 -->
+    <!-- application.yml의 aws.* 값을 logback 변수로 가져옴 — 모든 프로필 공통(로컬은 sanavi-dev-files, prod는 sanavi-prod-files) -->
+    <springProperty name="s3Bucket" source="aws.s3.bucket" defaultValue="sanavi-dev-files"/>
+    <springProperty name="s3Region" source="aws.region" defaultValue="ap-northeast-2"/>
+
+    <!-- S3: 50줄마다 또는 최소 1시간마다 log/sanavi-backend/{날짜}/{시간}-{uuid}.log 로 업로드 — 모든 프로필 공통
+         (로컬 개발도 실제 dev 버킷/자격증명을 쓰므로 EC2 배포 전에도 Athena 조회용 로그가 계속 쌓임) -->
+    <appender name="S3" class="com.sanavi.backend.common.logging.S3LogAppender">
+        <bucketName>${s3Bucket}</bucketName>
+        <region>${s3Region}</region>
+        <folderPath>log/sanavi-backend</folderPath>
+        <flushThreshold>50</flushThreshold>
+    </appender>
+
+    <!-- 개발 환경: 콘솔에 텍스트로 출력 + S3 적재 -->
     <springProfile name="default,local,dev">
         <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
@@ -19,6 +32,7 @@
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="MEMORY"/>
+            <appender-ref ref="S3"/>
         </root>
     </springProfile>
 
@@ -29,10 +43,6 @@
            AWS_REGION: ap-northeast-2
     -->
     <springProfile name="prod">
-
-        <!-- application.yml의 aws.* 값을 logback 변수로 가져옴 -->
-        <springProperty name="s3Bucket" source="aws.s3.bucket" defaultValue="sanavi-dev-files"/>
-        <springProperty name="s3Region" source="aws.region" defaultValue="ap-northeast-2"/>
 
         <!-- 로컬 파일: JSON 형식으로 저장 (장애 시 백업 + CloudWatch Agent 연동 가능) -->
         <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -52,14 +62,6 @@
                 <includeMdcKeyName>requestUri</includeMdcKeyName>
                 <includeMdcKeyName>handler</includeMdcKeyName>
             </encoder>
-        </appender>
-
-        <!-- S3: 50줄마다 log/sanavi-backend/{날짜}/{시간}-{uuid}.log 로 업로드 -->
-        <appender name="S3" class="com.sanavi.backend.common.logging.S3LogAppender">
-            <bucketName>${s3Bucket}</bucketName>
-            <region>${s3Region}</region>
-            <folderPath>log/sanavi-backend</folderPath>
-            <flushThreshold>50</flushThreshold>
         </appender>
 
         <root level="INFO">
