@@ -125,13 +125,13 @@ public class AdminPermissionGuard {
         String adminRoleType = adminRoleMapper.selectActiveAdminRoleType(adminUserId);
 
         if (adminRoleType == null || adminRoleType.isBlank()) {
-            log.warn(
-                    "action=ADMIN_PERMISSION_CHECK result=DENIED reason=NO_ACTIVE_ADMIN_ROLE admin_user_id={}",
+            // admin_role_assignment 미등록 → role_admin이면 SUPER_ADMIN 기본 부여
+            // 운영 초기 또는 역할 미지정 관리자도 전체 기능 사용 가능하도록
+            log.info(
+                    "action=ADMIN_PERMISSION_CHECK admin_user_id={} result=DEFAULT_SUPER_ADMIN reason=NO_ACTIVE_ADMIN_ROLE",
                     adminUserId);
 
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "세부 관리자 역할이 지정되지 않았습니다.");
+            return AdminRolePolicy.SUPER_ADMIN;
         }
 
         return adminRoleType;
