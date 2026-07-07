@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
@@ -89,7 +89,7 @@ public class AnalysisService {
     private <T> T proxyCall(Supplier<T> call) {
         try {
             return call.get();
-        } catch (HttpClientErrorException e) {
+        } catch (HttpStatusCodeException e) {
             throw new ResponseStatusException(
                     HttpStatus.valueOf(e.getStatusCode().value()), extractDetail(e.getResponseBodyAsString()));
         } catch (ResourceAccessException e) {
