@@ -10,6 +10,7 @@ public record LogEntryDto(
         String traceId,
         String clientIp,
         String userId,
-        String handler
+        String handler,
+        String duration
 ) {
 }

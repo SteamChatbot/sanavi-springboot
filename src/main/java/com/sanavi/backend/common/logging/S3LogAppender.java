@@ -138,17 +138,20 @@ public class S3LogAppender extends AppenderBase<ILoggingEvent> {
     // Output: JSON 한 줄 — Athena에서 컬럼으로 바로 쿼리 가능한 NDJSON 형식
     // userId/handler는 FILE_JSON appender(LogstashEncoder)가 이미 MDC에서 로깅하던 필드 — 관리자 로그 조회에서
     // userId/서비스(API)별 검색을 지원하기 위해 S3 포맷도 동일하게 맞춤 (2026-07-02)
+    // duration은 LoggingAspect의 END/ERROR 로그 한 줄에만 값이 있고 나머지 줄(START 등)은 "-" — 관리자 로그 테이블에
+    // 소요시간(ms) 컬럼 표시용으로 추가 (2026-07-07)
     private String format(ILoggingEvent event) {
         String traceId  = event.getMDCPropertyMap().getOrDefault("traceId",   "-");
         String clientIp = event.getMDCPropertyMap().getOrDefault("clientIp",  "-");
         String userId   = event.getMDCPropertyMap().getOrDefault("userId",    "-");
         String handler  = event.getMDCPropertyMap().getOrDefault("handler",   "-");
+        String duration = event.getMDCPropertyMap().getOrDefault("duration",  "-");
         String timestamp = LOG_TS_FMT.format(Instant.ofEpochMilli(event.getTimeStamp()));
         return String.format(
-                "{\"timestamp\":\"%s\",\"traceId\":\"%s\",\"clientIp\":\"%s\",\"level\":\"%s\",\"logger\":\"%s\",\"message\":\"%s\",\"userId\":\"%s\",\"handler\":\"%s\"}%n",
+                "{\"timestamp\":\"%s\",\"traceId\":\"%s\",\"clientIp\":\"%s\",\"level\":\"%s\",\"logger\":\"%s\",\"message\":\"%s\",\"userId\":\"%s\",\"handler\":\"%s\",\"duration\":\"%s\"}%n",
                 timestamp, traceId, clientIp,
                 event.getLevel(), escapeJson(event.getLoggerName()), escapeJson(event.getFormattedMessage()),
-                escapeJson(userId), escapeJson(handler)
+                escapeJson(userId), escapeJson(handler), escapeJson(duration)
         );
     }
 
