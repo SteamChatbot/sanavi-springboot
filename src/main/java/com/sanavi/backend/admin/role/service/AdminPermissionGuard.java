@@ -19,121 +19,115 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class AdminPermissionGuard {
 
-    private final MemberMapper memberMapper;
-    private final AdminRoleMapper adminRoleMapper;
+        private final MemberMapper memberMapper;
+        private final AdminRoleMapper adminRoleMapper;
 
-    public AdminRoleMeResponseDto getMyPermissions(String adminUserId) {
-        Member admin = requireAdminMember(adminUserId);
-        String adminRoleType = requireActiveAdminRoleType(admin.getUserId());
+        public AdminRoleMeResponseDto getMyPermissions(String adminUserId) {
+                Member admin = requireAdminMember(adminUserId);
+                String adminRoleType = requireActiveAdminRoleType(admin.getUserId());
 
-        var permissionCodes = AdminRolePolicy.getPermissionCodes(adminRoleType);
+                var permissionCodes = AdminRolePolicy.getPermissionCodes(adminRoleType);
 
-        log.info(
-                "action=ADMIN_PERMISSION_ME admin_user_id={} admin_role_type={} result=SUCCESS",
-                admin.getUserId(),
-                adminRoleType);
+                log.info(
+                                "action=ADMIN_PERMISSION_ME admin_user_id={} admin_role_type={} result=SUCCESS",
+                                admin.getUserId(),
+                                adminRoleType);
 
-        return new AdminRoleMeResponseDto(
-                adminRoleType,
-                AdminRolePolicy.getRoleLabel(adminRoleType),
-                permissionCodes);
-    }
-
-    public Member requirePermission(String adminUserId, String permissionCode) {
-        Member admin = requireAdminMember(adminUserId);
-        String adminRoleType = requireActiveAdminRoleType(admin.getUserId());
-
-        if (!AdminRolePolicy.hasPermission(adminRoleType, permissionCode)) {
-            log.warn(
-                    "action=ADMIN_PERMISSION_CHECK result=DENIED admin_user_id={} admin_role_type={} required_permission={}",
-                    admin.getUserId(),
-                    adminRoleType,
-                    permissionCode);
-
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "해당 관리자 기능에 접근할 권한이 없습니다.");
+                return new AdminRoleMeResponseDto(
+                                adminRoleType,
+                                AdminRolePolicy.getRoleLabel(adminRoleType),
+                                permissionCodes);
         }
 
-        log.info(
-                "action=ADMIN_PERMISSION_CHECK result=SUCCESS admin_user_id={} admin_role_type={} required_permission={}",
-                admin.getUserId(),
-                adminRoleType,
-                permissionCode);
+        public Member requirePermission(String adminUserId, String permissionCode) {
+                Member admin = requireAdminMember(adminUserId);
+                String adminRoleType = requireActiveAdminRoleType(admin.getUserId());
 
-        return admin;
-    }
+                if (!AdminRolePolicy.hasPermission(adminRoleType, permissionCode)) {
+                        log.warn(
+                                        "action=ADMIN_PERMISSION_CHECK result=DENIED admin_user_id={} admin_role_type={} required_permission={}",
+                                        admin.getUserId(),
+                                        adminRoleType,
+                                        permissionCode);
 
-    public Member requireSuperAdmin(String adminUserId) {
-        Member admin = requireAdminMember(adminUserId);
-        String adminRoleType = requireActiveAdminRoleType(admin.getUserId());
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "해당 관리자 기능에 접근할 권한이 없습니다.");
+                }
 
-        if (!AdminRolePolicy.SUPER_ADMIN.equals(adminRoleType)) {
-            log.warn(
-                    "action=ADMIN_SUPER_PERMISSION_CHECK result=DENIED admin_user_id={} admin_role_type={}",
-                    admin.getUserId(),
-                    adminRoleType);
+                log.info(
+                                "action=ADMIN_PERMISSION_CHECK result=SUCCESS admin_user_id={} admin_role_type={} required_permission={}",
+                                admin.getUserId(),
+                                adminRoleType,
+                                permissionCode);
 
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "최고관리자 권한이 필요합니다.");
+                return admin;
         }
 
-        return admin;
-    }
+        public Member requireSuperAdmin(String adminUserId) {
+                Member admin = requireAdminMember(adminUserId);
+                String adminRoleType = requireActiveAdminRoleType(admin.getUserId());
 
-    private Member requireAdminMember(String adminUserId) {
-        if (adminUserId == null || adminUserId.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "관리자 로그인이 필요합니다.");
+                if (!AdminRolePolicy.SUPER_ADMIN.equals(adminRoleType)) {
+                        log.warn(
+                                        "action=ADMIN_SUPER_PERMISSION_CHECK result=DENIED admin_user_id={} admin_role_type={}",
+                                        admin.getUserId(),
+                                        adminRoleType);
+
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "최고관리자 권한이 필요합니다.");
+                }
+
+                return admin;
         }
 
-        Member admin = memberMapper.findByUserId(adminUserId);
+        private Member requireAdminMember(String adminUserId) {
+                if (adminUserId == null || adminUserId.isBlank()) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "관리자 로그인이 필요합니다.");
+                }
 
-        if (admin == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.UNAUTHORIZED,
-                    "관리자 정보를 확인할 수 없습니다.");
+                Member admin = memberMapper.findByUserId(adminUserId);
+
+                if (admin == null) {
+                        throw new ResponseStatusException(
+                                        HttpStatus.UNAUTHORIZED,
+                                        "관리자 정보를 확인할 수 없습니다.");
+                }
+
+                if (!"role_admin".equals(admin.getRole())) {
+                        log.warn(
+                                        "action=ADMIN_PERMISSION_CHECK result=DENIED reason=NOT_ROLE_ADMIN admin_user_id={} role={}",
+                                        admin.getUserId(),
+                                        admin.getRole());
+
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "관리자 권한이 필요합니다.");
+                }
+
+                if (admin.getDeleted() == null || admin.getDeleted() != 1) {
+                        log.warn(
+                                        "action=ADMIN_PERMISSION_CHECK result=DENIED reason=DELETED_ADMIN admin_user_id={}",
+                                        admin.getUserId());
+
+                        throw new ResponseStatusException(
+                                        HttpStatus.FORBIDDEN,
+                                        "사용할 수 없는 관리자 계정입니다.");
+                }
+
+                return admin;
         }
 
-        if (!"role_admin".equals(admin.getRole())) {
-            log.warn(
-                    "action=ADMIN_PERMISSION_CHECK result=DENIED reason=NOT_ROLE_ADMIN admin_user_id={} role={}",
-                    admin.getUserId(),
-                    admin.getRole());
-
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "관리자 권한이 필요합니다.");
+        private String requireActiveAdminRoleType(String adminUserId) {
+                String adminRoleType = adminRoleMapper.selectActiveAdminRoleType(adminUserId);
+                if (adminRoleType == null || adminRoleType.isBlank()) {
+                        log.warn("action=ADMIN_PERMISSION_CHECK result=DENIED reason=NO_ACTIVE_ADMIN_ROLE admin_user_id={}",
+                                        adminUserId);
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "세부 관리자 역할이 지정되지 않았습니다.");
+                }
+                return adminRoleType;
         }
-
-        if (admin.getDeleted() == null || admin.getDeleted() != 1) {
-            log.warn(
-                    "action=ADMIN_PERMISSION_CHECK result=DENIED reason=DELETED_ADMIN admin_user_id={}",
-                    admin.getUserId());
-
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "사용할 수 없는 관리자 계정입니다.");
-        }
-
-        return admin;
-    }
-
-    private String requireActiveAdminRoleType(String adminUserId) {
-        String adminRoleType = adminRoleMapper.selectActiveAdminRoleType(adminUserId);
-
-        if (adminRoleType == null || adminRoleType.isBlank()) {
-            // admin_role_assignment 미등록 → role_admin이면 SUPER_ADMIN 기본 부여
-            // 운영 초기 또는 역할 미지정 관리자도 전체 기능 사용 가능하도록
-            log.info(
-                    "action=ADMIN_PERMISSION_CHECK admin_user_id={} result=DEFAULT_SUPER_ADMIN reason=NO_ACTIVE_ADMIN_ROLE",
-                    adminUserId);
-
-            return AdminRolePolicy.SUPER_ADMIN;
-        }
-
-        return adminRoleType;
-    }
 }
