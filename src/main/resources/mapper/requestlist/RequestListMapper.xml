@@ -145,6 +145,8 @@
         AND mt.match_type = 'DIRECT'
         AND mt.deleted = 1
         AND mb.deleted = 1
+        ORDER BY mb.id DESC
+        LIMIT 1
     </select>
 
     <select id="selectSentRequests"
