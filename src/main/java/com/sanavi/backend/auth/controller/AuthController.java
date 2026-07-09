@@ -109,6 +109,12 @@ public class AuthController {
 
         String newAccessToken = jwtProvider.generateAccessToken(userId, role);
 
+        // RT 자체는 재발급하지 않고 TTL만 연장 — 그동안 AT만 갱신되고 RT는 로그인 시점 기준
+        // 고정 7일 뒤 무조건 만료되어, 활동 중인데도 세션이 끊기는 문제가 있었음
+        tokenService.saveRefreshToken(
+                userId, refreshToken,
+                Duration.ofMillis(jwtProvider.getRefreshTokenExpiry()));
+
         log.info(
                 "action=TOKEN_REFRESH target_user_id={} role={} result=SUCCESS",
                 userId,
