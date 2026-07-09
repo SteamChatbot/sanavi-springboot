@@ -58,8 +58,8 @@ public class GlobalExceptionHandler {
         public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(
                         MaxUploadSizeExceededException exception) {
 
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                                .body(ApiResponse.failure("파일 용량이 너무 큽니다. (파일당 최대 10MB, 전체 최대 50MB)"));
+                return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                                .body(ApiResponse.failure("첨부파일 전체 용량은 최대 50MB까지 업로드할 수 있습니다."));
         }
 
         // 위 핸들러에서 잡히지 않은 모든 예외 — 예상치 못한 시스템 오류 — 500

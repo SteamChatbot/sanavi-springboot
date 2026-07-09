@@ -31,12 +31,12 @@ public class MatchController {
     private final S3Service s3Service;
 
     // 목적: 의뢰글 목록 조회 — role에 따라 본인 것만 또는 전체 조회
-    // Input:  page, size (페이지 정보)
-    //         status (선택 — OPEN·BIDDING·CLOSED·CANCELLED / 미전달 시 전체)
-    //         preferredRegion (선택 — 시도명 / 미전달 시 전체)
-    //         minPrice (선택 — 이 금액 이상만 / 미전달 시 전체)
+    // Input: page, size (페이지 정보)
+    // status (선택 — OPEN·BIDDING·CLOSED·CANCELLED / 미전달 시 전체)
+    // preferredRegion (선택 — 시도명 / 미전달 시 전체)
+    // minPrice (선택 — 이 금액 이상만 / 미전달 시 전체)
     // Output: PageResponse<MatchListResponseDto> — 페이지 메타 + 의뢰글 목록
-    // 기능:   role_user → JWT userId로 본인 의뢰글만 / 변호사·비로그인 → 전체
+    // 기능: role_user → JWT userId로 본인 의뢰글만 / 변호사·비로그인 → 전체
     @GetMapping
     public ResponseEntity<ApiResponse<PageResponse<MatchListResponseDto>>> getMatchList(
             @RequestParam(defaultValue = "1") int page,
@@ -61,17 +61,20 @@ public class MatchController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<Void>> createMatch(
             @ModelAttribute MatchRequestDto requestDto,
-            @RequestPart("pdf") MultipartFile pdf,
+            @RequestPart("files") List<MultipartFile> files,
             @AuthenticationPrincipal String userId) throws IOException {
+
         requestDto.setUserId(userId);
-        matchService.createMatch(requestDto, pdf);
+        matchService.createMatch(requestDto, files);
+
         return ResponseEntity.ok(ApiResponse.success("의뢰글이 등록되었습니다.", null));
     }
 
     @GetMapping("/files/{fileId}/download")
     public ResponseEntity<ApiResponse<String>> getDownloadUrl(@PathVariable int fileId) {
         MatchFileDto file = matchFileMapper.selectFileById(fileId);
-        if (file == null) return ResponseEntity.notFound().build();
+        if (file == null)
+            return ResponseEntity.notFound().build();
         return ResponseEntity.ok(ApiResponse.success("다운로드 URL 발급 성공",
                 s3Service.generatePresignedUrl(file.getFilePath(), 60 * 24 * 3)));
     }
