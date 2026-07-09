@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -48,6 +49,17 @@ public class GlobalExceptionHandler {
         @ExceptionHandler(NoResourceFoundException.class)
         public ResponseEntity<Void> handleNoResource() {
                 return ResponseEntity.notFound().build();
+        }
+
+        // 첨부파일 용량 초과(application.yml의 max-file-size/max-request-size) — 400
+        // 멀티파트 파싱은 DispatcherServlet 단계(컨트롤러 진입 전)에서 실패하므로 UserMdcInterceptor가
+        // 돌지 못해 로그의 userId가 항상 anonymous로 찍힘 — 인증 실패가 아니라 이 예외 때문이니 헷갈리지 말 것
+        @ExceptionHandler(MaxUploadSizeExceededException.class)
+        public ResponseEntity<ApiResponse<Void>> handleMaxUploadSizeExceeded(
+                        MaxUploadSizeExceededException exception) {
+
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                                .body(ApiResponse.failure("파일 용량이 너무 큽니다. (파일당 최대 10MB, 전체 최대 50MB)"));
         }
 
         // 위 핸들러에서 잡히지 않은 모든 예외 — 예상치 못한 시스템 오류 — 500
