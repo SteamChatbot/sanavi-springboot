@@ -104,8 +104,13 @@
         SELECT COUNT(*) FROM `match` WHERE deleted = 1 AND status = #{status}
     </select>
 
+    <!-- 의뢰글(match) 삭제 시 match_bid는 연쇄삭제 안 되고 남아있어서, mb.deleted만 보면
+         삭제된 의뢰글에 달린 입찰가까지 평균에 섞임 — match 쪽도 살아있는지 같이 확인 -->
     <select id="selectAverageBidPrice" resultType="java.lang.Double">
-        SELECT AVG(bid_price) FROM match_bid WHERE deleted = 1
+        SELECT AVG(mb.bid_price)
+        FROM match_bid mb
+        JOIN `match` m ON m.id = mb.match_id
+        WHERE mb.deleted = 1 AND m.deleted = 1
     </select>
 
     <!-- 변호사 풀 — 지역/전문분야 분포, 평균 경력 -->
