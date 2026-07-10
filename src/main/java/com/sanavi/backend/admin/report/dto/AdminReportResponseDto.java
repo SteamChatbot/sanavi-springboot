@@ -33,4 +33,7 @@ public class AdminReportResponseDto {
     private LocalDateTime processedAt;
     private String processReason;
     private Integer loginRestrictionDays;
+
+    // restrictLogin() 처리 직후 컨트롤러가 알림 메일을 보낼 때만 채워서 씀(목록/상세 조회에선 null)
+    private LocalDateTime restrictedUntil;
 }

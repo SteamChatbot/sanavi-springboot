@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.sanavi.backend.admin.report.dto.AdminReportListRequestDto;
 import com.sanavi.backend.admin.report.dto.AdminReportPageResponseDto;
 import com.sanavi.backend.admin.report.dto.AdminReportProcessRequestDto;
+import com.sanavi.backend.admin.report.dto.AdminReportResponseDto;
 import com.sanavi.backend.admin.report.service.AdminReportService;
 import com.sanavi.backend.common.response.ApiResponse;
 
@@ -42,7 +43,15 @@ public class AdminReportController {
                         @PathVariable Integer reportId,
                         @RequestBody AdminReportProcessRequestDto request,
                         @AuthenticationPrincipal String adminUserId) {
-                adminReportService.restrictLogin(reportId, adminUserId, request);
+                AdminReportResponseDto report = adminReportService.restrictLogin(reportId, adminUserId, request);
+
+                // 트랜잭션 커밋 후(이 시점) 호출 — 메일 발송 실패가 로그인 제한 처리 자체를 롤백시키지 않도록 분리
+                adminReportService.sendLoginRestrictionEmail(
+                                report.getReportedUserEmail(),
+                                report.getReportedUserName(),
+                                request.getReason().trim(),
+                                request.getDays(),
+                                report.getRestrictedUntil());
 
                 return ResponseEntity.ok(
                                 ApiResponse.success("로그인 제한 처리가 완료되었습니다.", null));

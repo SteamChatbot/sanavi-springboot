@@ -4,7 +4,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -20,6 +24,7 @@ import com.sanavi.backend.admin.role.service.AdminRolePolicy;
 import com.sanavi.backend.member.dto.Member;
 import com.sanavi.backend.security.TokenService;
 
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,6 +42,10 @@ public class AdminReportService {
     private final AdminReportMapper adminReportMapper;
     private final TokenService tokenService;
     private final AdminPermissionGuard adminPermissionGuard;
+    private final JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String senderEmail;
 
     @Transactional(readOnly = true)
     public AdminReportPageResponseDto getReports(AdminReportListRequestDto request, String adminUserId) {
@@ -71,7 +80,7 @@ public class AdminReportService {
     }
 
     @Transactional
-    public void restrictLogin(
+    public AdminReportResponseDto restrictLogin(
             Integer reportId,
             String adminUserId,
             AdminReportProcessRequestDto request) {
@@ -124,6 +133,83 @@ public class AdminReportService {
                 admin.getUserId(),
                 request.getDays(),
                 restrictedUntil);
+
+        report.setRestrictedUntil(restrictedUntil);
+        return report;
+    }
+
+    // 로그인 제한 알림 메일 — restrictLogin() 트랜잭션이 커밋된 뒤(컨트롤러에서) 호출해야 함
+    // MatchNotificationService와 동일한 이유: 발송 실패가 로그인 제한 처리 자체를 롤백시키면 안 되고,
+    // SMTP 왕복(~14초)으로 관리자 요청이 블로킹되지 않게 별도 스레드에서 처리
+    @Async
+    public void sendLoginRestrictionEmail(
+            String toEmail,
+            String memberName,
+            String reason,
+            int days,
+            LocalDateTime restrictedUntil) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("action=ADMIN_REPORT_LOGIN_RESTRICT_MAIL result=SKIP reason=NO_EMAIL");
+            return;
+        }
+
+        try {
+            String subject = "[산내비] 로그인 제한 안내";
+            String body = buildLoginRestrictionBody(memberName, reason, days, restrictedUntil);
+            sendMail(toEmail, subject, body);
+
+            log.info(
+                    "action=ADMIN_REPORT_LOGIN_RESTRICT_MAIL target_email={} days={} result=SUCCESS",
+                    toEmail, days);
+        } catch (Exception e) {
+            log.error(
+                    "action=ADMIN_REPORT_LOGIN_RESTRICT_MAIL target_email={} result=FAIL exception={}",
+                    toEmail, e.getClass().getSimpleName());
+        }
+    }
+
+    private void sendMail(String to, String subject, String htmlBody) throws Exception {
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+        helper.setFrom(senderEmail);
+        helper.setTo(to);
+        helper.setSubject(subject);
+        helper.setText(htmlBody, true);
+        mailSender.send(message);
+    }
+
+    private String buildLoginRestrictionBody(
+            String memberName,
+            String reason,
+            int days,
+            LocalDateTime restrictedUntil) {
+        return """
+                <div style="font-family: 'Apple SD Gothic Neo', sans-serif; max-width: 560px; margin: 0 auto; color: #222;">
+                  <div style="background:#1a5c38; padding: 28px 32px;">
+                    <h1 style="color:#fff; font-size:20px; margin:0;">산내비</h1>
+                    <p style="color:#a8d5bc; font-size:13px; margin:6px 0 0;">산업재해 보험금 청구 AI 분석 서비스</p>
+                  </div>
+                  <div style="padding: 36px 32px;">
+                    <h2 style="font-size:18px; margin:0 0 8px;">로그인 제한 안내</h2>
+                    <p style="color:#555; font-size:14px; margin:0 0 28px;">안녕하세요, <strong>%s</strong>님.<br>신고 접수 및 검토 결과에 따라 아래와 같이 로그인이 제한되었습니다.</p>
+                    <table style="width:100%%; border-collapse:collapse; font-size:14px;">
+                      <tr style="border-top:2px solid #1a5c38;">
+                        <td style="padding:14px 0; color:#777; width:35%%;">제한 기간</td>
+                        <td style="padding:14px 0; font-weight:600;">%d일</td>
+                      </tr>
+                      <tr style="border-top:1px solid #eee;">
+                        <td style="padding:14px 0; color:#777;">제한 해제일</td>
+                        <td style="padding:14px 0;">%s</td>
+                      </tr>
+                      <tr style="border-top:1px solid #eee;">
+                        <td style="padding:14px 0; color:#777;">사유</td>
+                        <td style="padding:14px 0;">%s</td>
+                      </tr>
+                    </table>
+                    <p style="color:#999; font-size:12px; margin:28px 0 0;">문의사항이 있으시면 고객센터로 연락해 주세요.</p>
+                  </div>
+                </div>
+                """.formatted(memberName, days, restrictedUntil.format(TIME_FORMATTER), reason);
     }
 
     @Transactional
