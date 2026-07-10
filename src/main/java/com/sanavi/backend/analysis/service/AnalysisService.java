@@ -76,7 +76,8 @@ public class AnalysisService {
 
     // userId가 null이면 비로그인 — 횟수 제한 없음, DB 저장 안 됨
     private void checkQuota(String userId) {
-        if (userId == null) return;
+        if (userId == null)
+            return;
 
         Member member = memberMapper.findByUserId(userId);
         if (member != null && member.getSubscribe() == 0 && member.getAiCount() >= 3) {
@@ -104,5 +105,28 @@ public class AnalysisService {
         } catch (Exception ignored) {
             return "요청 처리 실패";
         }
+    }
+
+    public void saveChecklistChecks(
+            String taskId,
+            Object body,
+            String userId) {
+        if (userId == null || userId.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "로그인이 필요한 기능입니다.");
+        }
+
+        proxyCall(() -> {
+            aiApiClient.put()
+                    .uri("/api/analysis/{taskId}/checklist", taskId)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header("X-User-Id", userId)
+                    .body(body)
+                    .retrieve()
+                    .toBodilessEntity();
+
+            return null;
+        });
     }
 }

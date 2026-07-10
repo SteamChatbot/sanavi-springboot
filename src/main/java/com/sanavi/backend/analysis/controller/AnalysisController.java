@@ -21,8 +21,7 @@ public class AnalysisController {
 
     private final AnalysisService analysisService;
 
-    @LogAction(action = "분석 요청", domain = "AI",
-            key = "#userId != null ? 'userId=' + #userId : 'guest'")
+    @LogAction(action = "분석 요청", domain = "AI", key = "#userId != null ? 'userId=' + #userId : 'guest'")
     @PostMapping
     public ResponseEntity<Object> requestAnalysis(
             @RequestBody Map<String, Object> body,
@@ -45,13 +44,21 @@ public class AnalysisController {
         return ResponseEntity.ok(analysisService.getHistory(userId));
     }
 
-    @LogAction(action = "분석 삭제", domain = "AI",
-            key = "'taskId=' + #taskId + ' by=' + #userId")
+    @LogAction(action = "분석 삭제", domain = "AI", key = "'taskId=' + #taskId + ' by=' + #userId")
     @DeleteMapping("/{taskId}")
     public ResponseEntity<Object> deleteAnalysis(
             @PathVariable String taskId,
             @AuthenticationPrincipal String userId) {
         analysisService.deleteAnalysis(taskId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{taskId}/checklist")
+    public ResponseEntity<Void> saveChecklistChecks(
+            @PathVariable String taskId,
+            @RequestBody Object body,
+            @AuthenticationPrincipal String userId) {
+        analysisService.saveChecklistChecks(taskId, body, userId);
         return ResponseEntity.noContent().build();
     }
 }

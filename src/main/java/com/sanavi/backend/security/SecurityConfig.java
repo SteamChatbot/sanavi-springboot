@@ -90,7 +90,7 @@ public class SecurityConfig {
                 "http://192.168.0.103:3000",
                 // S3 정적 웹사이트 호스팅
                 "http://sanavi-dev-frontend-306005334125-ap-northeast-2-an.s3-website.ap-northeast-2.amazonaws.com"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "put", "POST", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
 
